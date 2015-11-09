@@ -45,26 +45,27 @@ var logLevelAssoc = map[LogLevel]string{
 // Mode is used to represent the output format, user log or dev log
 type Mode int
 
-const (
-	// User mode only requires a simple readable format
-	User Mode = iota + 1
-	// Dev mode only requires a an extended information regarding output
-	Dev
-	// NotSupportedMode output modes that have no supported
-	NotSupportedMode
-)
+// const (
+// 	// User mode only requires a simple readable format
+// 	User Mode = iota + 1
+// 	// Dev mode only requires a an extended information regarding output
+// 	Dev
+// 	// NotSupportedMode output modes that have no supported
+// 	NotSupportedMode
+// )
 
-// logLevelModeAssoc provides a key:formatstring association for log mode
-var logLevelModeAssoc = map[Mode]string{
-	1: `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`,
-	2: `Type: %s Level: %s Time: %s Context: %s Func: %s Line: %s Message: %s`,
-}
+// // logLevelModeAssoc provides a key:formatstring association for log mode
+// var logLevelModeAssoc = map[Mode]string{
+// 	1: `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`,
+// 	2: `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`,
+// }
+var logFormat = `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`
 
 // basicFormatter formats out the output of the log
-func basicFormatter(lg *Loggly, ctx interface{}, funcName, funcMeta, Message string, data ...interface{}) string {
-	levelName := logLevelAssoc[lg.Level()]
-	modeVal := logLevelModeAssoc[lg.Mode()]
+func basicFormatter(lg *Loggly, ctx interface{}, funcName, Message string, data ...interface{}) string {
 	var ms string
+	levelName := logLevelAssoc[lg.Level()]
+	modeVal := logFormat
 
 	if atomic.LoadInt32(&lg.testMode) == 0 {
 		ms = time.Date(2009, time.November, 10, 15, 0, 0, 0, time.UTC).UTC().Format(layout)
@@ -72,21 +73,21 @@ func basicFormatter(lg *Loggly, ctx interface{}, funcName, funcMeta, Message str
 		ms = time.Now().UTC().Format(layout)
 	}
 
-	if lg.Mode() == User {
-		return fmt.Sprintf(modeVal, lg.logType, levelName, ctx, ms, funcName, fmt.Sprintf(Message, data...))
-	}
+	// if lg.Mode() == User {
+	// 	return fmt.Sprintf(modeVal, lg.logType, levelName, ctx, ms, funcName, fmt.Sprintf(Message, data...))
+	// }
 
-	return fmt.Sprintf(modeVal, lg.logType, levelName, ctx, ms, funcName, funcMeta, fmt.Sprintf(Message, data...))
+	return fmt.Sprintf(modeVal, lg.logType, levelName, ctx, ms, funcName, fmt.Sprintf(Message, data...))
 }
 
 // Loggly provides a base logging structure that provides a simple but adequate logging mechanism which provides both human readable and machine readable code
 type Loggly struct {
-	log      *log.Logger
-	logType  string
-	ro       sync.RWMutex
-	level    LogLevel
-	mo       sync.RWMutex
-	mode     Mode
+	log     *log.Logger
+	logType string
+	ro      sync.RWMutex
+	level   LogLevel
+	// mo       sync.RWMutex
+	// mode     Mode
 	testMode int32
 }
 
@@ -112,16 +113,16 @@ func StdLog(t string) *Loggly {
 	return New(t, os.Stdout)
 }
 
-// SwitchMode sets the current mode into log instance to the supplied mode instance
-func (l *Loggly) SwitchMode(m Mode) {
-	//if its not a mode we support, skip
-	if m < 0 || m >= NotSupportedMode {
-		return
-	}
-	l.mo.Lock()
-	l.mode = m
-	l.mo.Unlock()
-}
+// // SwitchMode sets the current mode into log instance to the supplied mode instance
+// func (l *Loggly) SwitchMode(m Mode) {
+// 	//if its not a mode we support, skip
+// 	if m < 0 || m >= NotSupportedMode {
+// 		return
+// 	}
+// 	l.mo.Lock()
+// 	l.mode = m
+// 	l.mo.Unlock()
+// }
 
 // SwitchLevel sets the current level into log instance
 func (l *Loggly) SwitchLevel(lvl LogLevel) {
@@ -134,13 +135,13 @@ func (l *Loggly) SwitchLevel(lvl LogLevel) {
 	l.ro.Unlock()
 }
 
-// Mode returns the current output mode
-func (l *Loggly) Mode() (m Mode) {
-	l.mo.RLock()
-	m = l.mode
-	l.mo.RUnlock()
-	return
-}
+// // Mode returns the current output mode
+// func (l *Loggly) Mode() (m Mode) {
+// 	l.mo.RLock()
+// 	m = l.mode
+// 	l.mo.RUnlock()
+// 	return
+// }
 
 // Level returns the current log level
 func (l *Loggly) Level() (lvl LogLevel) {
@@ -185,7 +186,7 @@ type Formatter interface {
 	Format() string
 }
 
-// DataTrace dumps down the log message included with a json formatted data sets
+// DataTrace dumps down the log message included with a formatted data string respecting newlines
 func (l *Loggly) DataTrace(ctx interface{}, funcName string, Message string, data Formatter) {
 }
 
