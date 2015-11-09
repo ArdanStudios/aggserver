@@ -37,8 +37,8 @@ func TestDataTrace(t *testing.T) {
 	funcMeta := "30:3"
 	Message := "Sending Response Body"
 
+	// ByteFormatter turns bytes into readable format using hex notation:
 	/*<Data
-		   Turns bytes into:
 			   0x000: 00 01 03 05 10 ...
 	  Data>\n\r
 	*/
