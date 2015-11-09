@@ -23,7 +23,8 @@ const (
 
 // Loggly provides a base logging structure that provides a simple but adequate logging mechanism which provides both human readable and machine readable code
 type Loggly struct {
-	log *log.Logger
+	log  *log.Logger
+	Type string
 }
 
 // Log provides the core logging function used by Loggly
@@ -62,7 +63,7 @@ func (l *Loggly) Dumpf(ctx interface{}, funcName string, jd interface{}, Message
 var central = log.New(os.Stdout, "", 0)
 
 // User provides a loggly logger for handling user reports
-var User = Loggly{log: central}
+var User = Loggly{log: central, Type: "app.User"}
 
 // Dev provides a loggly logger for handling dev reports
-var Dev = Loggly{log: central}
+var Dev = Loggly{log: central, Type: "app.Dev"}
