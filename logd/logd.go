@@ -45,27 +45,22 @@ var logLevelAssoc = map[LogLevel]string{
 // Mode is used to represent the output format, user log or dev log
 type Mode int
 
-// const (
-// 	// User mode only requires a simple readable format
-// 	User Mode = iota + 1
-// 	// Dev mode only requires a an extended information regarding output
-// 	Dev
-// 	// NotSupportedMode output modes that have no supported
-// 	NotSupportedMode
-// )
+const (
+	// DevMode mode only requires a an extended information regarding output
+	DevMode Mode = iota + 1
+	// UserMode mode only requires a simple readable format
+	UserMode
+	// NotSupportedMode output modes that have no supported
+	NotSupportedMode
+)
 
-// // logLevelModeAssoc provides a key:formatstring association for log mode
-// var logLevelModeAssoc = map[Mode]string{
-// 	1: `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`,
-// 	2: `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`,
-// }
-var logFormat = `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`
+var devFormat = `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`
+var userFormat = `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`
 
 // basicFormatter formats out the output of the log
 func basicFormatter(lg *Loggly, ctx interface{}, funcName, Message string, data ...interface{}) string {
 	var ms string
 	levelName := logLevelAssoc[lg.Level()]
-	modeVal := logFormat
 
 	if atomic.LoadInt32(&lg.testMode) == 1 {
 		ms = time.Date(2015, time.November, 10, 15, 0, 0, 0, time.UTC).UTC().Format(layout)
@@ -73,21 +68,21 @@ func basicFormatter(lg *Loggly, ctx interface{}, funcName, Message string, data 
 		ms = time.Now().UTC().Format(layout)
 	}
 
-	// if lg.Mode() == User {
-	// 	return fmt.Sprintf(modeVal, lg.logType, levelName, ctx, ms, funcName, fmt.Sprintf(Message, data...))
-	// }
+	if lg.Mode() > DevMode {
+		return fmt.Sprintf(userFormat, lg.logType, levelName, ctx, ms, fmt.Sprintf(Message, data...))
+	}
 
-	return fmt.Sprintf(modeVal, lg.logType, levelName, ctx, ms, funcName, fmt.Sprintf(Message, data...))
+	return fmt.Sprintf(devFormat, lg.logType, levelName, ctx, ms, funcName, fmt.Sprintf(Message, data...))
 }
 
 // Loggly provides a base logging structure that provides a simple but adequate logging mechanism which provides both human readable and machine readable code
 type Loggly struct {
-	log     *log.Logger
-	logType string
-	ro      sync.RWMutex
-	level   LogLevel
-	// mo       sync.RWMutex
-	// mode     Mode
+	log      *log.Logger
+	logType  string
+	ro       sync.RWMutex
+	level    LogLevel
+	mo       sync.RWMutex
+	mode     Mode
 	testMode int32
 }
 
@@ -113,16 +108,16 @@ func StdLog(t string) *Loggly {
 	return New(t, os.Stdout)
 }
 
-// // SwitchMode sets the current mode into log instance to the supplied mode instance
-// func (l *Loggly) SwitchMode(m Mode) {
-// 	//if its not a mode we support, skip
-// 	if m < 0 || m >= NotSupportedMode {
-// 		return
-// 	}
-// 	l.mo.Lock()
-// 	l.mode = m
-// 	l.mo.Unlock()
-// }
+// SwitchMode sets the current mode into log instance to the supplied mode instance
+func (l *Loggly) SwitchMode(m Mode) {
+	//if its not a mode we support, skip
+	if m < 0 || m >= NotSupportedMode {
+		return
+	}
+	l.mo.Lock()
+	l.mode = m
+	l.mo.Unlock()
+}
 
 // SwitchLevel sets the current level into log instance
 func (l *Loggly) SwitchLevel(lvl LogLevel) {
@@ -135,13 +130,13 @@ func (l *Loggly) SwitchLevel(lvl LogLevel) {
 	l.ro.Unlock()
 }
 
-// // Mode returns the current output mode
-// func (l *Loggly) Mode() (m Mode) {
-// 	l.mo.RLock()
-// 	m = l.mode
-// 	l.mo.RUnlock()
-// 	return
-// }
+// Mode returns the current output mode
+func (l *Loggly) Mode() (m Mode) {
+	l.mo.RLock()
+	m = l.mode
+	l.mo.RUnlock()
+	return
+}
 
 // Level returns the current log level
 func (l *Loggly) Level() (lvl LogLevel) {
@@ -152,7 +147,7 @@ func (l *Loggly) Level() (lvl LogLevel) {
 }
 
 // Log provides the core logging function used by Loggly
-func (l *Loggly) Log(ctx interface{}, level LogLevel, funcName, Message string, data ...interface{}) {
+func (l *Loggly) Log(ctx interface{}, level LogLevel, funcName string, messages ...interface{}) {
 	// var format string
 	if level >= l.Level() && level < NotSupportedLevel {
 		// l.log.Printf(format,ctx,level,)
@@ -163,38 +158,38 @@ func (l *Loggly) Log(ctx interface{}, level LogLevel, funcName, Message string, 
 func (l *Loggly) Logf(ctx interface{}, level LogLevel, funcName, Message string, data ...interface{}) {
 }
 
-// Info logs debug level info
-func (l *Loggly) Info(ctx interface{}, funcName, Message string, data ...interface{}) {}
-
-// Infof logs debug level info
-func (l *Loggly) Infof(ctx interface{}, funcName, Message string, data ...interface{}) {}
-
-// Error logs debug level info
-func (l *Loggly) Error(ctx interface{}, funcName, Message string, data ...interface{}) {}
-
-// Errorf logs debug level info
-func (l *Loggly) Errorf(ctx interface{}, funcName, Message string, data ...interface{}) {}
-
-// Debug logs debug level info
-func (l *Loggly) Debug(ctx interface{}, funcName, Message string, data ...interface{}) {}
-
-// Debugf logs debug level info
-func (l *Loggly) Debugf(ctx interface{}, funcName, Message string, data ...interface{}) {}
-
 // Formatter presents an interface where a data value provides its own format directive
 type Formatter interface {
 	Format() string
 }
 
-// DataTrace dumps down the log message included with a formatted data string respecting newlines
-func (l *Loggly) DataTrace(ctx interface{}, funcName string, Message string, data Formatter) {
-}
-
-// DataTracef dumps down the log message included with a json formatted data sets
-func (l *Loggly) DataTracef(ctx interface{}, funcName string, Message string, data Formatter, vals ...interface{}) {
-}
-
 // ByteFormatter turns a byte into a proper line string of hexdecimal digits
 func ByteFormatter(b []byte) Formatter {
 	return nil
+}
+
+var _log *Loggly
+
+// User logs out into user mode
+func User(ctx interface{}, level LogLevel, funcName string, message ...interface{}) {
+	_log.SwitchMode(UserMode)
+	_log.Log(ctx, level, funcName, message...)
+}
+
+// Userf logs out into user mode, will formatting string provided
+func Userf(ctx interface{}, level LogLevel, funcName, message string, data ...interface{}) {
+	_log.SwitchMode(UserMode)
+	_log.Logf(ctx, level, funcName, message, data...)
+}
+
+// Dev logs out into dev mode
+func Dev(ctx interface{}, level LogLevel, funcName string, message ...interface{}) {
+	_log.SwitchMode(DevMode)
+	_log.Log(ctx, level, funcName, message...)
+}
+
+// Devf logs out into dev mode, will formatting string provided
+func Devf(ctx interface{}, level LogLevel, funcName, message string, data ...interface{}) {
+	_log.SwitchMode(DevMode)
+	_log.Logf(ctx, level, funcName, message, data...)
 }
