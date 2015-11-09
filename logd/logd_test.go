@@ -1,20 +1,36 @@
 package logd
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 )
 
-var dev = New("app.Debug")
-
 func TestBasicLogging(t *testing.T) {
-	dev.Log("3432", InfoLevel, "CallRouters", "Intializing Routing Stats")
-	dev.Logf("3432", ErrorLevel, "CallRouters", "Error with data from %s", errors.New("Req: /home Status 404"))
-	dev.Logf("3432", DebugLevel, "CallRouters", "Debuging request for Req: %s", "/home")
+	var buff bytes.Buffer
+	var dev = New("app.Debug", &buff)
+
+	ctx := "3432"
+	lvl := InfoLevel
+	funcName := "CallRouters"
+	funcMeta := "300:36"
+	Message := "Initializing Routing Stats"
+
+	// dev.SwitchMode(User)
+	dev.Log(ctx, lvl, funcName, Message)
+	testRes := basicFormatter(dev, ctx, funcName, funcMeta, Message, nil)
+
+	if buff.String() != testRes {
+		t.Fatalf("Invalid response with expected output: Expected %s got %s", testRes, buff.String())
+	}
+
+	t.Log("Basic Log format passed")
 }
 
 // Switch logLevel to DataTrace and send out some data to include in the trace lines
 func TestDataTrace(t *testing.T) {
+	var buff bytes.Buffer
+	var dev = New("app.Debug", &buff)
 	dev.DataTrace("go.4321", "Agg.WriteResponse", "Sending Response body", []byte("Thunder routers"))
 	dev.DataTrace("go.4321", "Agg.WriteResponse", "Sending Response body", []byte("twister routers"))
 
@@ -26,6 +42,8 @@ func TestDataTrace(t *testing.T) {
 }
 
 func TestErrorLevels(t *testing.T) {
+	var buff bytes.Buffer
+	var dev = New("app.Debug", &buff)
 	dev.SwitchLevel(ErrorLevel)
 	// all log levels below the current are ignored
 	dev.Info("4021", "LoadConfig", "Configuratio Loaded")

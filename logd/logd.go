@@ -1,9 +1,13 @@
 package logd
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 // UTC Time Layout string
@@ -30,7 +34,7 @@ const (
 )
 
 // association strings with specific log levels
-var logLevelAssoc = map[int]string{
+var logLevelAssoc = map[LogLevel]string{
 	1: "INFO",
 	2: "DEBUG",
 	3: "DATATRACE",
@@ -50,29 +54,62 @@ const (
 	NotSupportedMode
 )
 
-// Loggly provides a base logging structure that provides a simple but adequate logging mechanism which provides both human readable and machine readable code
-type Loggly struct {
-	log     *log.Logger
-	logType string
-	ro      sync.RWMutex
-	level   LogLevel
-	mo      sync.RWMutex
-	mode    Mode
+// logLevelModeAssoc provides a key:formatstring association for log mode
+var logLevelModeAssoc = map[Mode]string{
+	1: `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`,
+	2: `Type: %s Level: %s Time: %s Context: %s Func: %s Line: %s Message: %s`,
 }
 
-const devloglayout = `Type: %s Level: %s Time: %s Context: %s Func: %s Line: %s Message: %s`
-const userloglayout = `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`
+// basicFormatter formats out the output of the log
+func basicFormatter(lg *Loggly, ctx interface{}, funcName, funcMeta, Message string, data ...interface{}) string {
+	levelName := logLevelAssoc[lg.Level()]
+	modeVal := logLevelModeAssoc[lg.Mode()]
+	var ms string
 
-var central = log.New(os.Stdout, "", 0)
+	if atomic.LoadInt32(&lg.testMode) == 0 {
+		ms = time.Date(2009, time.November, 10, 15, 0, 0, 0, time.UTC).UTC().Format(layout)
+	} else {
+		ms = time.Now().UTC().Format(layout)
+	}
+
+	if lg.Mode() == User {
+		return fmt.Sprintf(modeVal, lg.logType, levelName, ctx, ms, funcName, fmt.Sprintf(Message, data...))
+	}
+
+	return fmt.Sprintf(modeVal, lg.logType, levelName, ctx, ms, funcName, funcMeta, fmt.Sprintf(Message, data...))
+}
+
+// Loggly provides a base logging structure that provides a simple but adequate logging mechanism which provides both human readable and machine readable code
+type Loggly struct {
+	log      *log.Logger
+	logType  string
+	ro       sync.RWMutex
+	level    LogLevel
+	mo       sync.RWMutex
+	mode     Mode
+	testMode int32
+}
 
 // New returns a new instance of Loggly with the currently set loglevel at 1
-func New(t string) *Loggly {
+func New(t string, dev io.Writer) *Loggly {
 	lg := Loggly{
-		log:     log.New(os.Stdout, "", 0),
+		log:     log.New(dev, "", 0),
 		logType: t,
 		level:   1,
 	}
 	return &lg
+}
+
+// TestModeLog returns a new instance of Loggly with the currently set loglevel at 1
+func TestModeLog(t string, dev io.Writer) *Loggly {
+	lg := New(t, os.Stdout)
+	atomic.StoreInt32(&lg.testMode, 1)
+	return lg
+}
+
+// StdLog returns a new instance of Loggly with the output device set to stdout
+func StdLog(t string) *Loggly {
+	return New(t, os.Stdout)
 }
 
 // SwitchMode sets the current mode into log instance to the supplied mode instance
