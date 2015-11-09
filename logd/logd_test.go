@@ -31,8 +31,24 @@ func TestBasicLogging(t *testing.T) {
 func TestDataTrace(t *testing.T) {
 	var buff bytes.Buffer
 	var dev = New("app.Debug", &buff)
-	dev.DataTrace("go.4321", "Agg.WriteResponse", "Sending Response body", []byte("Thunder routers"))
-	dev.DataTrace("go.4321", "Agg.WriteResponse", "Sending Response body", []byte("twister routers"))
+
+	ctx := "go.4321"
+	funcName := "Agg.WriteResponse"
+	funcMeta := "30:3"
+	Message := "Sending Response Body"
+
+	/*
+		   Turns bytes into:
+			   0x000: 00 01 03 05 10 ...
+	*/
+
+	var bo = ByteFormatter([]byte(`Thunder routers`))
+	dev.DataTrace(ctx, funcName, Message, bo)
+	testRes := basicFormatter(dev, ctx, funcName, funcMeta, Message+bo.Format(), nil)
+
+	if buff.String() != testRes {
+		t.Fatalf("Invalid response with expected output: Expected %s got %s", testRes, buff.String())
+	}
 
 	//switch out level to a higher priority
 	dev.SwitchLevel(ErrorLevel)
@@ -50,5 +66,5 @@ func TestErrorLevels(t *testing.T) {
 
 	dev.Info("4021", "LoadConfig", "loading app.config file from disk")
 
-	dev.Errorf("4021", "LoadConfig", "loading app.config file errored out", errors.New("File Not Found!"))
+	dev.Error("4021", "LoadConfig", "loading app.config file errored out", errors.New("File Not Found!"))
 }

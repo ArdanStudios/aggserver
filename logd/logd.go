@@ -180,10 +180,20 @@ func (l *Loggly) Debug(ctx interface{}, funcName, Message string, data ...interf
 // Debugf logs debug level info
 func (l *Loggly) Debugf(ctx interface{}, funcName, Message string, data ...interface{}) {}
 
+// Formatter presents an interface where a data value provides its own format directive
+type Formatter interface {
+	Format() string
+}
+
 // DataTrace dumps down the log message included with a json formatted data sets
-func (l *Loggly) DataTrace(ctx interface{}, funcName string, Message string, data interface{}) {
+func (l *Loggly) DataTrace(ctx interface{}, funcName string, Message string, data Formatter) {
 }
 
 // DataTracef dumps down the log message included with a json formatted data sets
-func (l *Loggly) DataTracef(ctx interface{}, funcName string, Message string, data interface{}, vals ...interface{}) {
+func (l *Loggly) DataTracef(ctx interface{}, funcName string, Message string, data Formatter, vals ...interface{}) {
+}
+
+// ByteFormatter turns a byte into a proper line string of hexdecimal digits
+func ByteFormatter(b []byte) Formatter {
+	return nil
 }
