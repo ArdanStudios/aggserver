@@ -59,8 +59,8 @@ var modAssoc = map[Mode]string{
 	2: "User",
 }
 
-var devFormat = `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`
-var userFormat = `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`
+var devFormat = `Type: %s, Level: %s, Time: %s, Context: %s, Func: %s Message: %s`
+var userFormat = `Type: %s, Level: %s, Time: %s, Context: %s, Message: %s`
 
 // basicFormatter formats out the output of the log
 func basicFormatter(lg *Loggly, ctx interface{}, funcName, Message string, data ...interface{}) string {
