@@ -66,19 +66,3 @@ var User = Loggly{log: central}
 
 // Dev provides a loggly logger for handling dev reports
 var Dev = Loggly{log: central}
-
-// func User(ctx interface{}, level LogLevel, funcName, Message string, data ...interface{}) {
-// 	user.Log(ctx, level, funcName, Message, data...)
-// }
-//
-// func Userf(ctx interface{}, level LogLevel, funcName, Message string, data ...interface{}) {
-// 	user.Logf(ctx, level, funcName, Message, data...)
-// }
-//
-// func Dev(ctx interface{}, level LogLevel, funcName, Message string, data ...interface{}) {
-// 	dev.Log(ctx, level, funcName, Message, data...)
-// }
-//
-// func Devf(ctx interface{}, level LogLevel, funcName, Message string, data ...interface{}) {
-// 	dev.Logf(ctx, level, funcName, Message, data...)
-// }

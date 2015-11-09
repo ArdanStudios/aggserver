@@ -36,7 +36,6 @@ func TestDevLog(t *testing.T) {
 }
 
 func TestUserLog(t *testing.T) {
-
 	// => Level: app.User Type:  Time: 2015-02-01 12:32:40:4032 Message: ...
 	User.Log(struct{}{}, InfoLevel, "TestUserLog", "Write to bridget")
 	User.Logf(struct{}{}, InfoLevel, "TestUserLog", "Write to %s", "john")
