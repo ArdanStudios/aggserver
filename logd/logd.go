@@ -67,8 +67,8 @@ func basicFormatter(lg *Loggly, ctx interface{}, funcName, Message string, data 
 	levelName := logLevelAssoc[lg.Level()]
 	modeVal := logFormat
 
-	if atomic.LoadInt32(&lg.testMode) == 0 {
-		ms = time.Date(2009, time.November, 10, 15, 0, 0, 0, time.UTC).UTC().Format(layout)
+	if atomic.LoadInt32(&lg.testMode) == 1 {
+		ms = time.Date(2015, time.November, 10, 15, 0, 0, 0, time.UTC).UTC().Format(layout)
 	} else {
 		ms = time.Now().UTC().Format(layout)
 	}
