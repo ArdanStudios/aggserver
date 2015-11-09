@@ -37,9 +37,10 @@ func TestDataTrace(t *testing.T) {
 	funcMeta := "30:3"
 	Message := "Sending Response Body"
 
-	/*
+	/*<Data
 		   Turns bytes into:
 			   0x000: 00 01 03 05 10 ...
+	  Data>\n\r
 	*/
 
 	var bo = ByteFormatter([]byte(`Thunder routers`))
