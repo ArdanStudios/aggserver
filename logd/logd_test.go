@@ -9,7 +9,7 @@ import (
 // TestBasicLogging tests the output response from using the log api
 func TestBasicLogging(t *testing.T) {
 	var buff bytes.Buffer
-	var dev = New("app.Debug", &buff)
+	var dev = TestModeLog("app.Debug", &buff)
 
 	ctx := "3432"
 	lvl := InfoLevel
@@ -30,7 +30,7 @@ func TestBasicLogging(t *testing.T) {
 // Switch logLevel to DataTrace and send out some data to include in the trace lines
 func TestDataTrace(t *testing.T) {
 	var buff bytes.Buffer
-	var dev = New("app.Debug", &buff)
+	var dev = TestModeLog("app.Debug", &buff)
 
 	ctx := "go.4321"
 	funcName := "Agg.WriteResponse"
@@ -60,7 +60,7 @@ func TestDataTrace(t *testing.T) {
 
 func TestErrorLevels(t *testing.T) {
 	var buff bytes.Buffer
-	var dev = New("app.Debug", &buff)
+	var dev = TestModeLog("app.Debug", &buff)
 	dev.SwitchLevel(ErrorLevel)
 	// all log levels below the current are ignored
 	dev.Info("4021", "LoadConfig", "Configuratio Loaded")
