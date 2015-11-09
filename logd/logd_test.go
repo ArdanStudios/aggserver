@@ -4,7 +4,7 @@ import "testing"
 
 func TestDevLog(t *testing.T) {
 
-	// => Level: app.Dev Type:... Time: 2015-02-01 12:32:40:4032 Func: TestDevLog  Line:30:322 Message: ...
+	// => Level: app.Dev Type: INFO Time: 2015-02-01 12:32:40:4032 Func: TestDevLog  Line:30:322 Message: ...
 	Dev.Log(struct{}{}, InfoLevel, "TestDevLog", "Write to bridget")
 	Dev.Logf(struct{}{}, InfoLevel, "TestDevLog", "Write to %s", "john")
 
