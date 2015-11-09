@@ -93,6 +93,7 @@ func TestModeLogging(t *testing.T) {
 	var bo = ByteFormatter([]byte(`Thunder routers`))
 
 	//test in dev mode first
+	// I believe trace data dumps will print out any formaters when in dev modes
 	dev.Log(ctx, DataTraceLevel, funcName, Message, bo)
 	devtestRes := basicFormatter(dev, ctx, funcName, Message, bo)
 
@@ -101,11 +102,13 @@ func TestModeLogging(t *testing.T) {
 	}
 
 	buff.Reset()
+
 	//switch into user mode
 	dev.SwitchMode(UserMode)
 
+	// I believe trace data dumps will ignore any formaters when in user modes
 	dev.Log(ctx, DataTraceLevel, funcName, Message, bo)
-	usertestRes := basicFormatter(dev, ctx, funcName, Message+bo.Format(), nil)
+	usertestRes := basicFormatter(dev, ctx, funcName, Message, bo)
 
 	if buff.String() != usertestRes {
 		t.Fatalf("Invalid response with expected output in user mode: Expected %s got %s", usertestRes, buff.String())
