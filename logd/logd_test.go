@@ -6,19 +6,19 @@ import (
 	"testing"
 )
 
+// TestBasicLogging tests the output response from using the log api
 func TestBasicLogging(t *testing.T) {
 	var buff bytes.Buffer
 	var dev = New("app.Debug", &buff)
 
 	ctx := "3432"
 	lvl := InfoLevel
-	funcName := "CallRouters"
-	funcMeta := "300:36"
+	funcName := "CallRouters#300:36"
 	Message := "Initializing Routing Stats"
 
 	// dev.SwitchMode(User)
 	dev.Log(ctx, lvl, funcName, Message)
-	testRes := basicFormatter(dev, ctx, funcName, funcMeta, Message, nil)
+	testRes := basicFormatter(dev, ctx, funcName, Message, nil)
 
 	if buff.String() != testRes {
 		t.Fatalf("Invalid response with expected output: Expected %s got %s", testRes, buff.String())
