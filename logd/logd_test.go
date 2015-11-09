@@ -16,6 +16,7 @@ func TestBasicLogging(t *testing.T) {
 // Switch logLevel to DataTrace and send out some data to include in the trace lines
 func TestDataTrace(t *testing.T) {
 	dev.DataTrace("go.4321", "Agg.WriteResponse", "Sending Response body", []byte("Thunder routers"))
+	dev.DataTrace("go.4321", "Agg.WriteResponse", "Sending Response body", []byte("twister routers"))
 
 	//switch out level to a higher priority
 	dev.SwitchLevel(ErrorLevel)
