@@ -3,32 +3,123 @@ package logd
 import (
 	"log"
 	"os"
+	"sync"
 )
 
+// UTC Time Layout string
+const layout = "2015/04/01 12:00:00.000"
+
 // LogLevel defines a int type represent the different supported loglevels
-type LogLevel string
+type LogLevel int
 
 const (
+	//NoLogging defines the level where logging is disabled
+	NoLogging LogLevel = iota
 	// InfoLevel represents the info log level
-	InfoLevel LogLevel = "INFO"
+	InfoLevel
 	// DebugLevel represents the debug log level
-	DebugLevel LogLevel = "DEBUG"
-	// DumpLevel represents the data dump log level
-	DumpLevel LogLevel = "DUMP"
+	DebugLevel
+	// DataTraceLevel represents the data dump log level
+	DataTraceLevel
 	// TraceLevel represents the function trace log level
-	TraceLevel LogLevel = "TRACE"
+	TraceLevel
 	// ErrorLevel represents the error log level
-	ErrorLevel LogLevel = "ERROR"
+	ErrorLevel
+	// NotSupportedLevel represents level that are not supported
+	NotSupportedLevel
+)
+
+// association strings with specific log levels
+var logLevelAssoc = map[int]string{
+	1: "INFO",
+	2: "DEBUG",
+	3: "DATATRACE",
+	4: "TRACE",
+	5: "ERROR",
+}
+
+// Mode is used to represent the output format, user log or dev log
+type Mode int
+
+const (
+	// User mode only requires a simple readable format
+	User Mode = iota + 1
+	// Dev mode only requires a an extended information regarding output
+	Dev
+	// NotSupportedMode output modes that have no supported
+	NotSupportedMode
 )
 
 // Loggly provides a base logging structure that provides a simple but adequate logging mechanism which provides both human readable and machine readable code
 type Loggly struct {
-	log  *log.Logger
-	Type string
+	log     *log.Logger
+	logType string
+	ro      sync.RWMutex
+	level   LogLevel
+	mo      sync.RWMutex
+	mode    Mode
+}
+
+const devloglayout = `Type: %s Level: %s Time: %s Context: %s Func: %s Line: %s Message: %s`
+const userloglayout = `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`
+
+var central = log.New(os.Stdout, "", 0)
+
+// New returns a new instance of Loggly with the currently set loglevel at 1
+func New(t string) *Loggly {
+	lg := Loggly{
+		log:     log.New(os.Stdout, "", 0),
+		logType: t,
+		level:   1,
+	}
+	return &lg
+}
+
+// SwitchMode sets the current mode into log instance to the supplied mode instance
+func (l *Loggly) SwitchMode(m Mode) {
+	//if its not a mode we support, skip
+	if m < 0 || m >= NotSupportedMode {
+		return
+	}
+	l.mo.Lock()
+	l.mode = m
+	l.mo.Unlock()
+}
+
+// SwitchLevel sets the current level into log instance
+func (l *Loggly) SwitchLevel(lvl LogLevel) {
+	//if its not a level we support, skip
+	if lvl < 0 || lvl >= NotSupportedLevel {
+		return
+	}
+	l.ro.Lock()
+	l.level = lvl
+	l.ro.Unlock()
+}
+
+// Mode returns the current output mode
+func (l *Loggly) Mode() (m Mode) {
+	l.mo.RLock()
+	m = l.mode
+	l.mo.RUnlock()
+	return
+}
+
+// Level returns the current log level
+func (l *Loggly) Level() (lvl LogLevel) {
+	l.ro.RLock()
+	lvl = l.level
+	l.ro.RUnlock()
+	return
 }
 
 // Log provides the core logging function used by Loggly
-func (l *Loggly) Log(ctx interface{}, level LogLevel, funcName, Message string, data ...interface{}) {}
+func (l *Loggly) Log(ctx interface{}, level LogLevel, funcName, Message string, data ...interface{}) {
+	// var format string
+	if level >= l.Level() && level < NotSupportedLevel {
+		// l.log.Printf(format,ctx,level,)
+	}
+}
 
 // Logf provides the core logging function used by Loggly
 func (l *Loggly) Logf(ctx interface{}, level LogLevel, funcName, Message string, data ...interface{}) {
@@ -52,18 +143,10 @@ func (l *Loggly) Debug(ctx interface{}, funcName, Message string, data ...interf
 // Debugf logs debug level info
 func (l *Loggly) Debugf(ctx interface{}, funcName, Message string, data ...interface{}) {}
 
-// Dump dumps down the log message included with a json formatted data sets
-func (l *Loggly) Dump(ctx interface{}, funcName string, jd interface{}, Message string, data ...interface{}) {
+// DataTrace dumps down the log message included with a json formatted data sets
+func (l *Loggly) DataTrace(ctx interface{}, funcName string, Message string, data interface{}) {
 }
 
-// Dumpf dumps down the log message included with a json formatted data sets
-func (l *Loggly) Dumpf(ctx interface{}, funcName string, jd interface{}, Message string, data ...interface{}) {
+// DataTracef dumps down the log message included with a json formatted data sets
+func (l *Loggly) DataTracef(ctx interface{}, funcName string, Message string, data interface{}, vals ...interface{}) {
 }
-
-var central = log.New(os.Stdout, "", 0)
-
-// User provides a loggly logger for handling user reports
-var User = Loggly{log: central, Type: "app.User"}
-
-// Dev provides a loggly logger for handling dev reports
-var Dev = Loggly{log: central, Type: "app.Dev"}
