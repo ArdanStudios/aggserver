@@ -3,12 +3,16 @@ package logd
 import (
 	"bytes"
 	"errors"
+	"strings"
 	"testing"
+
+	"github.com/ArdanStudios/aggserver/testUtils"
 )
 
 func TestLevelSwitch(t *testing.T) {
 	var buff bytes.Buffer
-	var dev = TestModeLog("app.Debug", &buff)
+	var dev = New("app", &buff)
+	SwitchTestModeOn(dev)
 
 	dev.Log("4021", InfoLevel, "LoadConfig", "Configuratio Loaded")
 
@@ -21,10 +25,39 @@ func TestLevelSwitch(t *testing.T) {
 	dev.Log("4021", InfoLevel, "LoadConfig", "loading app.config file errored out", errors.New("File Not Found!"))
 }
 
+func TestDefaultLogger(t *testing.T) {
+	var buff bytes.Buffer
+	useTestModeLog(&buff)
+
+	User("4021", InfoLevel, "LoadConfig#40", "Configuratio Loaded")
+
+	if !strings.Contains(buff.String(), "Context: 4021") {
+		testUtils.Fail(t, "Invalid Context in log message")
+	}
+
+	if strings.Contains(buff.String(), "Func: LoadConfig#40") {
+		testUtils.Fail(t, "log in user mode should not contain functiona")
+	}
+
+	buff.Reset()
+	Dev("3041", InfoLevel, "LoadConfig#20", "loading app.config file from disk")
+
+	if !strings.Contains(buff.String(), "Message: loading app.config file from disk") {
+		testUtils.Fail(t, "Invalid message value in log")
+	}
+
+	Dev("3041", InfoLevel, "LoadConfig#20", "loading app.config file from disk")
+
+	if !strings.Contains(buff.String(), "Func: LoadConfig#20") {
+		testUtils.Fail(t, "Invalid functiona name value in log")
+	}
+
+}
+
 // TestBasicLogging tests the output response from using the log api
 func TestBasicLogging(t *testing.T) {
 	var buff bytes.Buffer
-	var dev = TestModeLog("app.Debug", &buff)
+	var dev = New("boss", &buff)
 
 	ctx := "3432"
 	lvl := InfoLevel
@@ -45,7 +78,7 @@ func TestBasicLogging(t *testing.T) {
 // Switch logLevel to DataTrace and send out some data to include in the trace lines
 func TestModeLogging(t *testing.T) {
 	var buff bytes.Buffer
-	var dev = TestModeLog("app.Debug", &buff)
+	var dev = New("boss", &buff)
 
 	ctx := "go.4321"
 	funcName := "Agg.WriteResponse#30:3"
@@ -61,7 +94,7 @@ func TestModeLogging(t *testing.T) {
 
 	//test in dev mode first
 	dev.Log(ctx, DataTraceLevel, funcName, Message, bo)
-	devtestRes := basicFormatter(dev, ctx, funcName, Message+bo.Format(), nil)
+	devtestRes := basicFormatter(dev, ctx, funcName, Message, bo)
 
 	if buff.String() != devtestRes {
 		t.Fatalf("Invalid response with expected output in dev mode: Expected %s got %s", devtestRes, buff.String())

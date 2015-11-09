@@ -54,6 +54,11 @@ const (
 	NotSupportedMode
 )
 
+var modAssoc = map[Mode]string{
+	1: "Dev",
+	2: "User",
+}
+
 var devFormat = `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`
 var userFormat = `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`
 
@@ -61,6 +66,7 @@ var userFormat = `Type: %s Level: %s Time: %s Context: %s Func: %s Message: %s`
 func basicFormatter(lg *Loggly, ctx interface{}, funcName, Message string, data ...interface{}) string {
 	var ms string
 	levelName := logLevelAssoc[lg.Level()]
+	modeName := modAssoc[lg.Mode()]
 
 	if atomic.LoadInt32(&lg.testMode) == 1 {
 		ms = time.Date(2015, time.November, 10, 15, 0, 0, 0, time.UTC).UTC().Format(layout)
@@ -69,16 +75,16 @@ func basicFormatter(lg *Loggly, ctx interface{}, funcName, Message string, data 
 	}
 
 	if lg.Mode() > DevMode {
-		return fmt.Sprintf(userFormat, lg.logType, levelName, ctx, ms, fmt.Sprintf(Message, data...))
+		return fmt.Sprintf(userFormat, fmt.Sprintf("%s.%s", lg.ns, modeName), levelName, ctx, ms, fmt.Sprintf(Message, data...))
 	}
 
-	return fmt.Sprintf(devFormat, lg.logType, levelName, ctx, ms, funcName, fmt.Sprintf(Message, data...))
+	return fmt.Sprintf(devFormat, fmt.Sprintf("%s.%s", lg.ns, modeName), levelName, ctx, ms, funcName, fmt.Sprintf(Message, data...))
 }
 
 // Loggly provides a base logging structure that provides a simple but adequate logging mechanism which provides both human readable and machine readable code
 type Loggly struct {
 	log      *log.Logger
-	logType  string
+	ns       string
 	ro       sync.RWMutex
 	level    LogLevel
 	mo       sync.RWMutex
@@ -89,18 +95,22 @@ type Loggly struct {
 // New returns a new instance of Loggly with the currently set loglevel at 1
 func New(t string, dev io.Writer) *Loggly {
 	lg := Loggly{
-		log:     log.New(dev, "", 0),
-		logType: t,
-		level:   1,
+		log:   log.New(dev, "", 0),
+		ns:    t,
+		level: 1,
 	}
 	return &lg
 }
 
-// TestModeLog returns a new instance of Loggly with the currently set loglevel at 1
-func TestModeLog(t string, dev io.Writer) *Loggly {
-	lg := New(t, os.Stdout)
+// useTestModeLog returns a new instance of Loggly with the currently set loglevel at 1
+func useTestModeLog(dev io.Writer) {
+	_log.log = log.New(dev, "", 0)
+	SwitchTestModeOn(_log)
+}
+
+// SwitchTestModeOn switches log test mode int to 1
+func SwitchTestModeOn(lg *Loggly) {
 	atomic.StoreInt32(&lg.testMode, 1)
-	return lg
 }
 
 // StdLog returns a new instance of Loggly with the output device set to stdout
@@ -192,4 +202,8 @@ func Dev(ctx interface{}, level LogLevel, funcName string, message ...interface{
 func Devf(ctx interface{}, level LogLevel, funcName, message string, data ...interface{}) {
 	_log.SwitchMode(DevMode)
 	_log.Logf(ctx, level, funcName, message, data...)
+}
+
+func init() {
+	_log = New("app", os.Stdout)
 }
