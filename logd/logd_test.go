@@ -22,21 +22,17 @@ func TestDevLog(t *testing.T) {
 
 	//dumps the given data into json formatted output
 	// => Level: app.Dev Type: DataDump Time: 2015-02-01 12:32:40:4032 Func: TestDevLog Line:30:322 Message: JSON Request Body...
-	/* <DataDump
-
-		   map:
-			  name: alex
-				sid: 32
-
-	  DataDump>
-		// ...
+	/*
+		map:
+		 name: alex
+		 sid: 32
 	*/
 	Dev.Dump(struct{}{}, "TestDevLog", map[string]interface{}{"name": "alex", "sid": 32}, "JSON Requests Body")
 	Dev.Dumpf(struct{}{}, "TestDevLog", map[string]interface{}{"name": "alex", "sid": 32}, "JSON Requests Body %s", "url")
 }
 
 func TestUserLog(t *testing.T) {
-	// => Level: app.User Type:  Time: 2015-02-01 12:32:40:4032 Message: ...
+	// => Level: app.User Type: Time: 2015-02-01 12:32:40:4032 Message: ...
 	User.Log(struct{}{}, InfoLevel, "TestUserLog", "Write to bridget")
 	User.Logf(struct{}{}, InfoLevel, "TestUserLog", "Write to %s", "john")
 
@@ -54,13 +50,10 @@ func TestUserLog(t *testing.T) {
 
 	//dumps the given data into json formatted output
 	// => Level: app.User Type: DataDump Time: 2015-02-01 12:32:40:4032 Message:
-	/* <DataDump
-
-		   map:
-			  name: alex
-				sid: 32
-
-	  DataDump>
+	/*
+		map:
+			name: alex
+			sid: 32
 	*/
 	User.Dump(struct{}{}, "TestDevLog", map[string]interface{}{"name": "alex", "sid": 32}, "JSON Requests Body")
 	User.Dumpf(struct{}{}, "TestDevLog", map[string]interface{}{"name": "alex", "sid": 32}, "JSON Requests Body %s", "url")
