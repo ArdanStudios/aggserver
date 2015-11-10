@@ -75,9 +75,9 @@ func TestLogLevels(t *testing.T) {
 			pass(t, "Should have a long that contains context: 4312")
 
 			if buf.Len() > 0 {
-				fail(t, "Should have an empty log when trying to log to User in dev mode")
+				fail(t, "Should have an empty log when trying to log in User level with Dev()")
 			}
-			pass(t, "Should have an empty log when trying to log to User in dev mode")
+			pass(t, "Should have an empty log when trying to log in User level with Dev()")
 		}
 
 		t.Log("When we log USER level messages")
@@ -140,9 +140,9 @@ func TestUserRetrieveLog(t *testing.T) {
 			pass(t, "Should not have 'context' within log")
 
 			if buf.Len() == 0 {
-				fail(t, "Should have not have empty log traces")
+				fail(t, "Should not have empty log traces")
 			}
-			pass(t, "Should have not have empty log traces")
+			pass(t, "Should not have empty log traces")
 		}
 	}
 }
