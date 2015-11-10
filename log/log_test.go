@@ -34,7 +34,7 @@ func resetBuffer() {
 
 func TestLogLevels(t *testing.T) {
 	initTests()
-	t.Log("Given the log is initialized")
+	t.Log("Given the log is initialized.")
 	{
 		t.Log("When we log DEV level messages")
 		{
@@ -113,7 +113,7 @@ func TestLogLevels(t *testing.T) {
 func TestUserRetrieveLog(t *testing.T) {
 	initTests()
 
-	t.Log("Given the need to log the username retrievals")
+	t.Log("Given the need to log the username retrievals.")
 	{
 		t.Log("When we need to output error status to dev")
 		{
@@ -152,7 +152,7 @@ func TestUserRetrieveLog(t *testing.T) {
 func TestLogLines(t *testing.T) {
 	initTests()
 
-	t.Log("Given the need to validate log format components")
+	t.Log("Given the need to validate log format components.")
 	{
 
 		t.Log("When logging in DEV level")
@@ -203,17 +203,17 @@ func TestLogLines(t *testing.T) {
 // fail is used to log a fail message.
 func fail(t *testing.T, message string, data ...interface{}) {
 	if len(data) == 0 {
-		t.Fatalf("%s %s", message, failed)
+		t.Fatalf("%s. %s", message, failed)
 	} else {
-		t.Fatalf("%s %s", fmt.Sprintf(message, data...), failed)
+		t.Fatalf("%s. %s", fmt.Sprintf(message, data...), failed)
 	}
 }
 
 // pass is used to log a success message.
 func pass(t *testing.T, message string, data ...interface{}) {
 	if len(data) == 0 {
-		t.Logf("%s %s", message, succeed)
+		t.Logf("%s. %s", message, succeed)
 	} else {
-		t.Logf("%s %s", fmt.Sprintf(message, data...), succeed)
+		t.Logf("%s. %s", fmt.Sprintf(message, data...), succeed)
 	}
 }
