@@ -1,14 +1,13 @@
-package log
+package log_test
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"os"
-	"strings"
-	"sync"
 	"testing"
 	"time"
+
+	"github.com/ardanstudios/aggserver/log"
 )
 
 // succeed is the Unicode codepoint for a check mark.
@@ -17,203 +16,72 @@ const succeed = "\u2713"
 // failed is the Unicode codepoint for an X mark.
 const failed = "\u2717"
 
-var doOne = new(sync.Once)
-var buf = new(bytes.Buffer)
+// logdest implements io.Writer and is the log package destination.
+var logdest bytes.Buffer
 
-func initTests() {
-	doOne.Do(func() {
-		Init(buf, func() int { return DEV })
-	})
-	SwitchLevel(DEV)
-	resetBuffer()
+// resetLog can be called at the beginning of a test or example.
+func resetLog() { logdest.Reset() }
+
+// displayLog can be called at the end of a test or example.
+// It only prints the log contents if the -test.v flag is set.
+func displayLog() {
+	if !testing.Verbose() {
+		return
+	}
+	logdest.WriteTo(os.Stdout)
 }
 
-func resetBuffer() {
-	buf.Reset()
-}
-
-func TestLogLevels(t *testing.T) {
-	initTests()
-	t.Log("Given the log is initialized.")
+// TestLogLevelUSER tests the basic functioning of the logger in USER mode.
+func TestLogLevelUSER(t *testing.T) {
+	t.Log("Given the need to log DEV and USER messages.")
 	{
-		t.Log("When we log DEV level messages")
+		t.Log("\tWhen we set the logging level to USER.")
 		{
-			resetBuffer()
+			log.Init(&logdest, func() int { return log.USER })
+			resetLog()
 
-			Dev("5312", "LogWatch", "Error occured retrieving username %s",
-				errors.New("Offline Connection!"))
+			now := time.Now()
 
-			if !strings.Contains(buf.String(), "Context: 5312") {
-				fail(t, "Should contain context: 4312")
+			log.Dev("context", "FuncName", "Message 1 no format")
+			log.User("context", "FuncName", "Message 2 with format: %s, %s", "A", "B")
+
+			dt := now.Format("2006/1/2 15:04:05")
+
+			log1 := fmt.Sprintf("%s log_test.go:46: context : FuncName : USER : Message 2 with format: A, B\n", dt)
+
+			if logdest.String() == log1 {
+				t.Logf("\t\t%v : Should log the expected trace line.", succeed)
+			} else {
+				t.Errorf("\t\t%v : Should log the expected trace line.", failed)
 			}
-			pass(t, "Should contain context: 4312")
-
-			if !strings.Contains(buf.String(), "Func: LogWatch") {
-				fail(t, "Should contain 'Func: LogWatch'")
-			}
-			pass(t, "Should contain 'Func: LogWatch'")
-
-			components := strings.Split(buf.String(), ",")
-
-			if len(components) < 7 {
-				fail(t, "Should contain 7 components parts")
-			}
-			pass(t, "Should contain 7 components parts")
-		}
-
-		t.Log("When we must not output DEV messages in USER level")
-		{
-			resetBuffer()
-			SwitchLevel(USER)
-
-			Dev("4312", "RetrieveUser", "Error occured retrieving username %s",
-				errors.New("Offline Connection!"))
-
-			if strings.Contains(buf.String(), "Context: 4312") {
-				fail(t, "Should have a long that contains context: 4312")
-			}
-			pass(t, "Should have a long that contains context: 4312")
-
-			if buf.Len() > 0 {
-				fail(t, "Should have an empty log when trying to log in User level with Dev()")
-			}
-			pass(t, "Should have an empty log when trying to log in User level with Dev()")
-		}
-
-		t.Log("When we log USER level messages")
-		{
-			resetBuffer()
-			SwitchLevel(USER)
-
-			User("4394", "LogWatch", "Error occured retrieving username %s",
-				errors.New("Offline Connection!"))
-
-			if !strings.Contains(buf.String(), "Context: 4394") {
-				fail(t, "Should contain context: 4394")
-			}
-			pass(t, "Should contain context: 4394")
-
-			if strings.Contains(buf.String(), "Func: LogWatch") {
-				fail(t, "Should not contain 'Func: LogWatch'")
-			}
-			pass(t, "Should not contain 'Func: LogWatch'")
-
-			components := strings.Split(buf.String(), ",")
-
-			if len(components) < 5 {
-				fail(t, "Should contain 5 components parts")
-			}
-			pass(t, "Should contain 5 components parts")
 		}
 	}
 }
 
-// TestUserRetrieveLog validates the log trace which is produced when logging
-// the response from a UserRetrieve function call.
-func TestUserRetrieveLog(t *testing.T) {
-	initTests()
-
-	t.Log("Given the need to log the username retrievals.")
+// TestLogLevelDEV tests the basic functioning of the logger in DEV mode.
+func TestLogLevelDEV(t *testing.T) {
+	t.Log("Given the need to log DEV and USER messages.")
 	{
-		t.Log("When we need to output error status to dev")
+		t.Log("\tWhen we set the logging level to DEV.")
 		{
-			Dev("4312", "RetrieveUser", "Error occured retrieving username %s",
-				errors.New("Offline Connection!"))
+			log.Init(&logdest, func() int { return log.DEV })
+			resetLog()
 
-			if !strings.Contains(buf.String(), "Context: 4312") {
-				fail(t, "Should have a log that contains context: 4312")
+			now := time.Now()
+
+			log.Dev("context", "FuncName", "Message 1 no format")
+			log.User("context", "FuncName", "Message 2 with format: %s, %s", "A", "B")
+
+			dt := now.Format("2006/1/2 15:04:05")
+
+			log1 := fmt.Sprintf("%s log_test.go:72: context : FuncName : DEV : Message 1 no format\n", dt)
+			log2 := fmt.Sprintf("%s log_test.go:73: context : FuncName : USER : Message 2 with format: A, B\n", dt)
+
+			if logdest.String() == log1+log2 {
+				t.Logf("\t\t%v : Should log the expected trace line.", succeed)
+			} else {
+				t.Errorf("\t\t%v : Should log the expected trace line.", failed)
 			}
-
-			pass(t, "Should have a log that contains context: 4312")
 		}
-
-		t.Log("When we must output USER messages in DEV level")
-		{
-			resetBuffer()
-
-			User("4312", "RetrieveUser", "Error occured retrieving username %s",
-				errors.New("Offline Connection!"))
-
-			if !strings.Contains(buf.String(), "Context: 4312") {
-				fail(t, "Should not have 'context' within log")
-			}
-			pass(t, "Should not have 'context' within log")
-
-			if buf.Len() == 0 {
-				fail(t, "Should not have empty log traces")
-			}
-			pass(t, "Should not have empty log traces")
-		}
-	}
-}
-
-// TestLogCorrectness validates the logged output content and length when using
-// the two available log levels.
-func TestLogLines(t *testing.T) {
-	initTests()
-
-	t.Log("Given the need to validate log format components.")
-	{
-
-		t.Log("When logging in DEV level")
-		{
-
-			context := "32"
-			funcName := "Munch"
-			message := "Raffle Munch SuperBall."
-			file := "log_test.go#169"
-			curTime := time.Now().UTC().Format(layout)
-			pid := os.Getpid()
-
-			expected := fmt.Sprintf(devFormat, pid, "DEV", curTime, context, file, funcName, message+"\n")
-			Dev(context, funcName, message)
-
-			if buf.String() != expected {
-				fail(t, "Should match log output with expected")
-			}
-			pass(t, "Should match log output with expected")
-
-		}
-
-		t.Log("When logging in USER level")
-		{
-
-			resetBuffer()
-			SwitchLevel(USER)
-
-			context := "64"
-			funcName := "Munch"
-			message := "Raffle Munch SuperBall."
-			curTime := time.Now().UTC().Format(layout)
-			pid := os.Getpid()
-
-			expected := fmt.Sprintf(userformat, pid, "USER", curTime, context, message+"\n")
-			User(context, funcName, message)
-
-			if buf.String() != expected {
-				fail(t, "Should match log output with expected")
-			}
-			pass(t, "Should match log output with expected")
-
-		}
-	}
-
-}
-
-// fail is used to log a fail message.
-func fail(t *testing.T, message string, data ...interface{}) {
-	if len(data) == 0 {
-		t.Fatalf("%s. %s", message, failed)
-	} else {
-		t.Fatalf("%s. %s", fmt.Sprintf(message, data...), failed)
-	}
-}
-
-// pass is used to log a success message.
-func pass(t *testing.T, message string, data ...interface{}) {
-	if len(data) == 0 {
-		t.Logf("%s. %s", message, succeed)
-	} else {
-		t.Logf("%s. %s", fmt.Sprintf(message, data...), succeed)
 	}
 }
