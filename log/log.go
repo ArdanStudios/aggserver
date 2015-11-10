@@ -58,7 +58,7 @@ func Init(w io.Writer, fx func() int) {
 	{
 		_log.log = log.New(w, "", 0)
 		if fx != nil {
-			_log.SwitchLevel((fx()))
+			_log.SwitchLevel(fx())
 		}
 	}
 	_log.logMutex.Unlock()
@@ -69,7 +69,7 @@ func Init(w io.Writer, fx func() int) {
 func SwitchLevel(lvl int) {
 	_log.logMutex.RLock()
 	defer _log.logMutex.RUnlock()
-	_log.SwitchLevel((lvl))
+	_log.SwitchLevel(lvl)
 }
 
 // devFormat is the current format used in creating the DEV level logging output
