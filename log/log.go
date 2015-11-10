@@ -107,7 +107,7 @@ func User(context interface{}, funcName string, format string, a ...interface{})
 	}
 }
 
-// fileQuery retrieves the functionName(if provided is empty) and line number,
+// fileQuery retrieves the functionName(if funcName parameter is empty) and line number,
 // filePath, and current pid of the running process
 func fileQuery(funcName string, depth int) (function string, file string, pid int) {
 	pid = os.Getpid()
