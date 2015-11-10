@@ -11,7 +11,7 @@ const succeed = "\u2713"
 // failed is the Unicode codepoint for an X mark.
 const failed = "\u2717"
 
-// Fail is used to log a fail log message
+// Fail is used to log a fail message.
 func Fail(t *testing.T, message string, data ...interface{}) {
 	if len(data) == 0 {
 		t.Fatalf("%s %s", message, failed)
@@ -20,7 +20,7 @@ func Fail(t *testing.T, message string, data ...interface{}) {
 	}
 }
 
-// Pass is used to log a success log message
+// Pass is used to log a success message.
 func Pass(t *testing.T, message string, data ...interface{}) {
 	if len(data) == 0 {
 		t.Logf("%s %s", message, succeed)
