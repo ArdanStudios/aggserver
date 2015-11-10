@@ -40,14 +40,12 @@ func TestLogLevelUSER(t *testing.T) {
 			log.Init(&logdest, func() int { return log.USER })
 			resetLog()
 
-			now := time.Now()
+			dt := time.Now().Format("2006/1/2 15:04:05")
+
+			log1 := fmt.Sprintf("%s log_test.go:48: context : FuncName : USER : Message 2 with format: A, B\n", dt)
 
 			log.Dev("context", "FuncName", "Message 1 no format")
 			log.User("context", "FuncName", "Message 2 with format: %s, %s", "A", "B")
-
-			dt := now.Format("2006/1/2 15:04:05")
-
-			log1 := fmt.Sprintf("%s log_test.go:46: context : FuncName : USER : Message 2 with format: A, B\n", dt)
 
 			if logdest.String() == log1 {
 				t.Logf("\t\t%v : Should log the expected trace line.", succeed)
@@ -67,15 +65,13 @@ func TestLogLevelDEV(t *testing.T) {
 			log.Init(&logdest, func() int { return log.DEV })
 			resetLog()
 
-			now := time.Now()
+			dt := time.Now().Format("2006/1/2 15:04:05")
+
+			log1 := fmt.Sprintf("%s log_test.go:73: context : FuncName : DEV : Message 1 no format\n", dt)
+			log2 := fmt.Sprintf("%s log_test.go:74: context : FuncName : USER : Message 2 with format: A, B\n", dt)
 
 			log.Dev("context", "FuncName", "Message 1 no format")
 			log.User("context", "FuncName", "Message 2 with format: %s, %s", "A", "B")
-
-			dt := now.Format("2006/1/2 15:04:05")
-
-			log1 := fmt.Sprintf("%s log_test.go:72: context : FuncName : DEV : Message 1 no format\n", dt)
-			log2 := fmt.Sprintf("%s log_test.go:73: context : FuncName : USER : Message 2 with format: A, B\n", dt)
 
 			if logdest.String() == log1+log2 {
 				t.Logf("\t\t%v : Should log the expected trace line.", succeed)
