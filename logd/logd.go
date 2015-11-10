@@ -1,5 +1,6 @@
 package logd
 
+<<<<<<< HEAD
 import (
 	"fmt"
 	"io"
@@ -13,6 +14,8 @@ import (
 // UTC Time Layout string
 const layout = "2015/04/01 12:00:00.000"
 
+=======
+>>>>>>> fe463fc3139e2a4b2fe9c9b6097877f428befc64
 // LogLevel defines a int type represent the different supported loglevels
 type LogLevel int
 
@@ -53,6 +56,7 @@ const (
 	// NotSupportedMode output modes that have no supported
 	NotSupportedMode
 )
+<<<<<<< HEAD
 
 var modAssoc = map[Mode]string{
 	1: "Dev",
@@ -207,3 +211,5 @@ func Devf(ctx interface{}, level LogLevel, funcName, message string, data ...int
 func init() {
 	_log = New("app", os.Stdout)
 }
+=======
+>>>>>>> fe463fc3139e2a4b2fe9c9b6097877f428befc64

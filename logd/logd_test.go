@@ -1,4 +1,5 @@
 package logd
+<<<<<<< HEAD
 
 import (
 	"bytes"
@@ -115,3 +116,5 @@ func TestModeLogging(t *testing.T) {
 	}
 
 }
+=======
+>>>>>>> fe463fc3139e2a4b2fe9c9b6097877f428befc64
