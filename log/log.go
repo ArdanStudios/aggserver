@@ -46,17 +46,20 @@ func (l *loggly) SwitchLevel(u int) {
 
 // _log maintains a pointer to the single log instance used package wide.
 var _log = loggly{
-	log: log.New(os.Stdout, "", 0),
+// log: log.New(os.Stdout, "", 0),
 }
 
 // Init sets up the necessary logging instance with the appropriate loglevel to
 // be used by the logger.
+// WARNING: This function should only be called once.
 func Init(w io.Writer, fx func() int) {
 	// lock the global logger access mutex before writing to the global instance.
 	_log.logMutex.Lock()
 	{
 		_log.log = log.New(w, "", 0)
-		_log.SwitchLevel((fx()))
+		if fx != nil {
+			_log.SwitchLevel((fx()))
+		}
 	}
 	_log.logMutex.Unlock()
 }

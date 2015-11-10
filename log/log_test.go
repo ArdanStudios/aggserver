@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -16,15 +17,28 @@ const succeed = "\u2713"
 // failed is the Unicode codepoint for an X mark.
 const failed = "\u2717"
 
-func TestLogLevels(t *testing.T) {
-	var buf = new(bytes.Buffer)
-	Init(buf, func() int { return DEV })
+var doOne = new(sync.Once)
+var buf = new(bytes.Buffer)
 
+func initTests() {
+	doOne.Do(func() {
+		Init(buf, func() int { return DEV })
+	})
+	SwitchLevel(DEV)
+	resetBuffer()
+}
+
+func resetBuffer() {
+	buf.Reset()
+}
+
+func TestLogLevels(t *testing.T) {
+	initTests()
 	t.Log("Given the log is initialized")
 	{
 		t.Log("When we log DEV level messages")
 		{
-			buf.Reset()
+			resetBuffer()
 
 			Dev("5312", "LogWatch", "Error occured retrieving username %s",
 				errors.New("Offline Connection!"))
@@ -49,9 +63,9 @@ func TestLogLevels(t *testing.T) {
 
 		t.Log("When we must not output DEV messages in USER level")
 		{
-			buf.Reset()
-
+			resetBuffer()
 			SwitchLevel(USER)
+
 			Dev("4312", "RetrieveUser", "Error occured retrieving username %s",
 				errors.New("Offline Connection!"))
 
@@ -68,7 +82,7 @@ func TestLogLevels(t *testing.T) {
 
 		t.Log("When we log USER level messages")
 		{
-			buf.Reset()
+			resetBuffer()
 			SwitchLevel(USER)
 
 			User("4394", "LogWatch", "Error occured retrieving username %s",
@@ -97,8 +111,7 @@ func TestLogLevels(t *testing.T) {
 // TestUserRetrieveLog validates the log trace which is produced when logging
 // the response from a UserRetrieve function call.
 func TestUserRetrieveLog(t *testing.T) {
-	var buf = new(bytes.Buffer)
-	Init(buf, func() int { return DEV })
+	initTests()
 
 	t.Log("Given the need to log the username retrievals")
 	{
@@ -114,23 +127,22 @@ func TestUserRetrieveLog(t *testing.T) {
 			pass(t, "Should have a log that contains context: 4312")
 		}
 
-		t.Log("When we must not output log DEV messages in USER level")
+		t.Log("When we must output USER messages in DEV level")
 		{
-			buf.Reset()
+			resetBuffer()
 
-			SwitchLevel(USER)
-			Dev("4312", "RetrieveUser", "Error occured retrieving username %s",
+			User("4312", "RetrieveUser", "Error occured retrieving username %s",
 				errors.New("Offline Connection!"))
 
-			if strings.Contains(buf.String(), "Context: 4312") {
+			if !strings.Contains(buf.String(), "Context: 4312") {
 				fail(t, "Should not have 'context' within log")
 			}
 			pass(t, "Should not have 'context' within log")
 
-			if buf.Len() > 0 {
-				fail(t, "Should have an empty log when trying to log to User in dev mode")
+			if buf.Len() == 0 {
+				fail(t, "Should have not have empty log traces")
 			}
-			pass(t, "Should have an empty log when trying to log to User in dev mode")
+			pass(t, "Should have not have empty log traces")
 		}
 	}
 }
@@ -138,8 +150,7 @@ func TestUserRetrieveLog(t *testing.T) {
 // TestLogCorrectness validates the logged output content and length when using
 // the two available log levels.
 func TestLogLines(t *testing.T) {
-	var buf = new(bytes.Buffer)
-	Init(buf, func() int { return DEV })
+	initTests()
 
 	t.Log("Given the need to validate log format components")
 	{
@@ -150,7 +161,7 @@ func TestLogLines(t *testing.T) {
 			context := "32"
 			funcName := "Munch"
 			message := "Raffle Munch SuperBall."
-			file := "log_test.go#158"
+			file := "log_test.go#169"
 			curTime := time.Now().UTC().Format(layout)
 			pid := os.Getpid()
 
@@ -167,7 +178,7 @@ func TestLogLines(t *testing.T) {
 		t.Log("When logging in USER level")
 		{
 
-			buf.Reset()
+			resetBuffer()
 			SwitchLevel(USER)
 
 			context := "64"
