@@ -1,11 +1,11 @@
-package conf_test
+package cfg_test
 
 import (
 	"os"
 	"testing"
 	"time"
 
-	"github.com/ArdanStudios/aggserver/conf"
+	"github.com/ArdanStudios/aggserver/cfg"
 )
 
 // ExampleDev shows how to use the conf package
@@ -15,22 +15,21 @@ func ExampleDev(t *testing.T) {
 	os.Setenv("DOCK_PORT", "4044")
 	os.Setenv("DOCK_InitStamp", time.Now().String())
 
-	// Init must be called once with the given namespace in to load the
-	// associated varaibles, namespace should be in lowercase.
-	conf.Init("dock")
+	// Init() must be called only once, with the given namespace to load.
+	cfg.Init("dock")
 
 	// NOTE: All keys must be in lowercase. The second returned value
 	// is a boolean, to indicate wether the key was found and if it was parsable
 	// to the desired type.
 
-	// use GetString to retrieve the ip
-	_, _ = conf.GetString("ip")
+	// use String() to retrieve the ip
+	_ = cfg.String("ip")
 
-	// use GetInt to retrieve the port if found and parsable to int
-	_, _ = conf.GetInt("port")
+	// use Int() to retrieve the port if found and parsable to int
+	_ = cfg.Int("port")
 
-	// use GetTime to retrieve the InitStamp value as a time object if parsable
+	// use Time() to retrieve the InitStamp value as a time object if parsable
 	// as such
-	_, _ = conf.GetTime("initstamp")
+	_ = cfg.Time("initstamp")
 
 }

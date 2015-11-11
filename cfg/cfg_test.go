@@ -1,11 +1,11 @@
-package conf_test
+package cfg_test
 
 import (
 	"fmt"
 	"os"
 	"testing"
 
-	"github.com/ArdanStudios/aggserver/conf"
+	"github.com/ArdanStudios/aggserver/cfg"
 )
 
 // succeed is the Unicode codepoint for a check mark.
@@ -30,37 +30,20 @@ func TestLoadingEnvironmentConfig(t *testing.T) {
 		t.Log("\tWhen giving a namspace key to search for")
 		{
 
-			if err := conf.Init("myapp"); err != nil {
-				fail(t, "\t\tShould load environment variables for namespace %q", "myapp")
-			}
+			cfg.Init("myapp")
 			pass(t, "\t\tShould load environment variables for namespace %q", "myapp")
 
-			if _, ok := conf.GetInt("proc_id"); !ok {
-				fail(t, "\t\tShould find key %q", "proc_id")
-			}
-			pass(t, "\t\tShould find key %q", "proc_id")
-
-			if _, ok := conf.GetString("socket"); !ok {
-				fail(t, "\t\tShould find key %q", "socket")
-			}
-			pass(t, "\t\tShould find key %q", "socket")
-
-			if _, ok := conf.GetInt("port"); !ok {
-				fail(t, "\t\tShould find key %q", "port")
-			}
-
-			pass(t, "\t\tShould find key 'port' in map")
-			if proc, _ := conf.GetInt("proc_id"); proc != 322 {
+			if cfg.Int("proc_id") != 322 {
 				fail(t, "\t\tShould have key %q with int type value %d", "proc_id", 322)
 			}
 			pass(t, "\t\tShould have key %q with int type value %d", "proc_id", 322)
 
-			if socket, _ := conf.GetString("socket"); socket != "./tmp/sockets.po" {
+			if cfg.String("socket") != "./tmp/sockets.po" {
 				fail(t, "\t\tShould have key %q with string type value %q", "socket", "./tmp/sockets.po")
 			}
 			pass(t, "\t\tShould have key %q with string type value %q", "socket", "./tmp/sockets.po")
 
-			if port, _ := conf.GetInt("port"); port != 4034 {
+			if cfg.Int("port") != 4034 {
 				fail(t, "\t\tShould have key %q with int type value %d", "port", 4034)
 			}
 			pass(t, "\t\tShould have key %q with int type value %d", "port", 4034)

@@ -1,4 +1,4 @@
-// Package conf provides a package level configuration loader which loaders a
+// Package cfg provides a package level configuration loader which loaders a
 // given set of configuration options using a given namespace and a map as the
 // storage endpoint.
 //		os.Setenv("MYAPP_PROC_ID", "322")
@@ -7,11 +7,11 @@
 //		os.Setenv("MYAPP_Stamp", "2013-10-03 10:43:32.200")
 // To load the set of configuration values from your environment, simple do:
 //
-//      err := Init("myapp")
+//      cfg.Init("myapp")
 //
 // To Retrieve keys:
 //
-//  porc, found := conf.GetString("proc_id")
-//  port, foundAndParsed := conf.GetInt("port")
-//  ms, foundAndParsed := conf.GetTime("stamp")
-package conf
+//  porc := cfg.String("proc_id")
+//  port := cfg.Int("port")
+//  ms := cfg.Time("stamp")
+package cfg
