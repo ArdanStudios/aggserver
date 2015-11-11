@@ -1,4 +1,4 @@
-// Package config provides a package level configuration loader which loaders a
+// Package conf provides a package level configuration loader which loaders a
 // given set of configuration options using a given namespace and a map as the
 // storage endpoint.
 // To load a your configuration from your environment using a namespace with the
@@ -11,4 +11,4 @@
 //      config := make(map[string]interface{})
 //      err := EnvConfig("myapp",config)
 //
-package config
+package conf
