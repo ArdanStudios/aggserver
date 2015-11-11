@@ -13,7 +13,7 @@ import (
 var c = make(map[string]string)
 
 // String returns the value(in type string) of the giving key, else will panic
-// if the key  does not exist.
+// if the key does not exist.
 func String(key string) string {
 	value, state := c[key]
 	if !state {
