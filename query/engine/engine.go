@@ -163,6 +163,7 @@ func (e *Engine) QueryExpression(exp *Expression, rx ResultCallback) {
 	if rx == nil {
 		rx = func(err error, _ []bson.M) {}
 	}
+	e.wg.Add(1)
 	go func() {
 		//ensure we decrement the wait counter.
 		defer e.wg.Done()
@@ -184,6 +185,7 @@ func (e *Engine) QueryExpression(exp *Expression, rx ResultCallback) {
 		// conditions.
 		var result []bson.M
 
+		log.Printf("getting collection %s", exp.Collection)
 		//get the needed collection from the db.
 		col := e.DB(e.Db).C(exp.Collection)
 
@@ -229,7 +231,7 @@ func mapAttributesInExpression(exp *Expression, params map[string]interface{}) {
 	if params != nil && len(params) != 0 {
 		for key, value := range params {
 			findKey := fmt.Sprintf("#%s#", key)
-			useVal := fmt.Sprintf("%q", value)
+			useVal := fmt.Sprintf("%s", value)
 			for n, rule := range exp.Conditions {
 				exp.Conditions[n] = strings.Replace(rule, findKey, useVal, -1)
 			}
