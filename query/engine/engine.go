@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +17,13 @@ import (
 type Expression struct {
 	Collection string   `yaml:"collection" json:"collection"`
 	Conditions []string `yaml:"conditions" json:"conditions"`
+}
+
+// Rule repesent a set of expressions which will be tested against
+type Rule struct {
+	Test *Expression `json:"test" yaml:"test"`
+	Fail *Expression `json:"failed" yaml:"failed"`
+	Pass *Expression `json:"passed" yaml:"passed"`
 }
 
 // Connect provides a basic connection config struct for creating the necessary
@@ -69,35 +77,53 @@ func (e *Engine) Close() {
 	e.Session.Close()
 }
 
+// Query takes a byte slice that contain a json rule which gets turned
+// rule struct and provided with the needed params to resolve any necessary
+// value substitution. End result is supplied to the given callback
+func (e *Engine) Query(bo []byte, params map[string]interface{}, rx ResultCallback) {
+	// generate the rule struct from the given byte slice
+	ro, err := mapQuery2Rule(bo, params)
+
+	// if we failed, return and pass to callback
+	if err != nil {
+		rx(err, nil)
+		return
+	}
+
+	// execute the given Rule against the concerned database
+	e.QueryRule(ro, rx)
+}
+
+// QueryRule runs a given rule set against a collection executing the fail or pass
+// depending on the outcome of the Test if no error occured.
+func (e *Engine) QueryRule(ro *Rule, rx ResultCallback) {
+	e.QueryExpression(ro.Test, func(err error, res []bson.M) {
+		if err != nil {
+			log.Printf("Error occured executing %s: %s", ro, err)
+			return
+		}
+
+		if len(res) == 0 {
+			e.QueryExpression(ro.Fail, rx)
+		} else {
+			e.QueryExpression(ro.Pass, rx)
+		}
+	})
+}
+
 // ResultCallback provides a function type for the return of a result from a
 // call to Engine.Query.
 type ResultCallback func(error, []bson.M)
 
-func (e *Engine) QueryFile(file string, params map[string]interface{}, rx ResultCallback) {
-
-}
-
-// Query runs a given query []byte slice (contain json strings) against the mongo
-// collection using the mgo.Pipe function.
-// The query string(json) will be processed into an Expression and a map of
-// possible key:value parameters if provided will be used to swap specific pieces
-// with the desired values. During the process if any error is encountered, the
-// given callback is called and the process returns and frees up the session and
-// wait counter
-func (e *Engine) Query(query []byte, params map[string]interface{}, rx ResultCallback) {
+// QueryExpression executes a given expression against a given collection and passes the
+// result or an error if occured to a given callback handler.
+func (e *Engine) QueryExpression(exp *Expression, rx ResultCallback) {
+	if rx == nil {
+		rx = func(err error, _ []bson.M) {}
+	}
 	go func() {
 		//ensure we decrement the wait counter.
 		defer e.wg.Done()
-
-		//map out the given expression rules.
-		exp, err := mapQuery2Expressions(query, params)
-
-		// if there was an error converting query into a Expression, then reply
-		// the callback and return.
-		if err != nil {
-			rx(err, nil)
-			return
-		}
 
 		// map out the expression condition lists into a bson.M map.
 		evalExpr, err := mapExpressionToBSON(exp)
@@ -131,16 +157,28 @@ func (e *Engine) Query(query []byte, params map[string]interface{}, rx ResultCal
 	}()
 }
 
-// mapQuery2Expressions will map out a valid json string through a json decoder
-// into a Expression struct. If the param map is supplied, it will substitute the
-// appropriate key with the value in the map using the following format '#key#'.
-func mapQuery2Expressions(query []byte, params map[string]interface{}) (*Expression, error) {
-	var exp = &Expression{}
+//mapQuery2Rule will map out a giving json byte slice into a Rule object.
+func mapQuery2Rule(query []byte, params map[string]interface{}) (*Rule, error) {
+	r := Rule{
+		Test: &Expression{},
+		Fail: &Expression{},
+		Pass: &Expression{},
+	}
 
-	if err := json.NewDecoder(bytes.NewBuffer(query)).Decode(exp); err != nil {
+	if err := json.NewDecoder(bytes.NewBuffer(query)).Decode(&r); err != nil {
 		return nil, err
 	}
 
+	mapAttributesInExpression(r.Test, params)
+	mapAttributesInExpression(r.Pass, params)
+	mapAttributesInExpression(r.Fail, params)
+
+	return &r, nil
+}
+
+// mapAttributesInExpression will take an expression and map into it the giving keys using
+// the format '#key#' where found in a supplied map.
+func mapAttributesInExpression(exp *Expression, params map[string]interface{}) {
 	if params != nil && len(params) != 0 {
 		for key, value := range params {
 			findKey := fmt.Sprintf("#%s#", key)
@@ -150,8 +188,6 @@ func mapQuery2Expressions(query []byte, params map[string]interface{}) (*Express
 			}
 		}
 	}
-
-	return exp, nil
 }
 
 // mapExpressionToBSON will take an expressions object and creates an equivalent
@@ -168,4 +204,18 @@ func mapExpressionToBSON(exp *Expression) ([]bson.M, error) {
 	}
 
 	return conditions, nil
+}
+
+// mapQuery2Expressions will map out a valid json string through a json decoder
+// into a Expression struct. If the param map is supplied, it will substitute the
+// appropriate key with the value in the map using the following format '#key#'.
+func mapQuery2Expressions(query []byte, params map[string]interface{}) (*Expression, error) {
+	var exp = &Expression{}
+
+	if err := json.NewDecoder(bytes.NewBuffer(query)).Decode(exp); err != nil {
+		return nil, err
+	}
+
+	mapAttributesInExpression(exp, params)
+	return exp, nil
 }
