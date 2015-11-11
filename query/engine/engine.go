@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -77,26 +79,62 @@ func (e *Engine) Close() {
 	e.Session.Close()
 }
 
+// ResultTypeCallback provides a function type for the returned result from a
+// call to Engine.Query, it supplies an error, the expression used in
+// and the result of the expression
+type ResultTypeCallback func(error, *Expression, []bson.M)
+
+// QueryFile requests a file be loaded which contains specific rules to be used
+// in performing a QueryRule,the file contains a json formatted rule set which will
+// be processed and results returned to the callback
+func (e *Engine) QueryFile(file string, params map[string]interface{}, rx ResultTypeCallback) error {
+	// retrieve the file and load up the content
+	qfile, err := os.Open(file)
+
+	// we failed to get file,return err
+	if err != nil {
+		// rx(err,nil,nil)
+		return err
+	}
+
+	// ensure we have the file closed up
+	defer qfile.Close()
+
+	rule, err := mapQueryReader2Rule(qfile, params)
+
+	// we failed to create the rule objec,return err
+	if err != nil {
+		// rx(err,nil,nil)
+		return err
+	}
+
+	// execute the given Rule against the concerned database
+	e.QueryRule(rule, rx)
+
+	return nil
+}
+
 // Query takes a byte slice that contain a json rule which gets turned
 // rule struct and provided with the needed params to resolve any necessary
 // value substitution. End result is supplied to the given callback
-func (e *Engine) Query(bo []byte, params map[string]interface{}, rx ResultCallback) {
+func (e *Engine) Query(bo []byte, params map[string]interface{}, rx ResultTypeCallback) error {
 	// generate the rule struct from the given byte slice
 	ro, err := mapQuery2Rule(bo, params)
 
 	// if we failed, return and pass to callback
 	if err != nil {
-		rx(err, nil)
-		return
+		// rx(err, nil, nil)
+		return err
 	}
 
 	// execute the given Rule against the concerned database
 	e.QueryRule(ro, rx)
+	return nil
 }
 
 // QueryRule runs a given rule set against a collection executing the fail or pass
 // depending on the outcome of the Test if no error occured.
-func (e *Engine) QueryRule(ro *Rule, rx ResultCallback) {
+func (e *Engine) QueryRule(ro *Rule, rx ResultTypeCallback) {
 	e.QueryExpression(ro.Test, func(err error, res []bson.M) {
 		if err != nil {
 			log.Printf("Error occured executing %s: %s", ro, err)
@@ -104,9 +142,13 @@ func (e *Engine) QueryRule(ro *Rule, rx ResultCallback) {
 		}
 
 		if len(res) == 0 {
-			e.QueryExpression(ro.Fail, rx)
+			e.QueryExpression(ro.Fail, func(err error, res []bson.M) {
+				rx(err, ro.Fail, res)
+			})
 		} else {
-			e.QueryExpression(ro.Pass, rx)
+			e.QueryExpression(ro.Pass, func(err error, res []bson.M) {
+				rx(err, ro.Pass, res)
+			})
 		}
 	})
 }
@@ -159,13 +201,18 @@ func (e *Engine) QueryExpression(exp *Expression, rx ResultCallback) {
 
 //mapQuery2Rule will map out a giving json byte slice into a Rule object.
 func mapQuery2Rule(query []byte, params map[string]interface{}) (*Rule, error) {
+	return mapQueryReader2Rule(bytes.NewBuffer(query), params)
+}
+
+//mapQueryReader2Rule will map out a giving io.Reader into a Rule object.
+func mapQueryReader2Rule(query io.Reader, params map[string]interface{}) (*Rule, error) {
 	r := Rule{
 		Test: &Expression{},
 		Fail: &Expression{},
 		Pass: &Expression{},
 	}
 
-	if err := json.NewDecoder(bytes.NewBuffer(query)).Decode(&r); err != nil {
+	if err := json.NewDecoder(query).Decode(&r); err != nil {
 		return nil, err
 	}
 
