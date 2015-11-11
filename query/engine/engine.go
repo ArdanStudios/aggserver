@@ -185,7 +185,6 @@ func (e *Engine) QueryExpression(exp *Expression, rx ResultCallback) {
 		// conditions.
 		var result []bson.M
 
-		log.Printf("getting collection %s", exp.Collection)
 		//get the needed collection from the db.
 		col := e.DB(e.Db).C(exp.Collection)
 
