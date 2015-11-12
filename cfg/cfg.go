@@ -47,8 +47,8 @@ func Init(namespace string) {
 // String returns the value of the giving key as a string, else it will panic
 // if the key was not found.
 func String(key string) string {
-	value, state := c.m[key]
-	if !state {
+	value, found := c.m[key]
+	if !found {
 		panic(fmt.Sprintf("Unknown key %s !", key))
 	}
 
@@ -58,31 +58,31 @@ func String(key string) string {
 // Int returns the value of the giving key as an int, else it will panic
 // if the key was not found or the value can't be convered to an int.
 func Int(key string) int {
-	value, state := c.m[key]
-	if !state {
+	value, found := c.m[key]
+	if !found {
 		panic(fmt.Sprintf("Unknown Key %s !", key))
 	}
 
-	intv, err := strconv.Atoi(value)
+	iv, err := strconv.Atoi(value)
 	if err != nil {
 		panic(fmt.Sprintf("Key %q value is not an int", key))
 	}
 
-	return intv
+	return iv
 }
 
 // Time returns the value of the giving key as a Time, else it will panic
 // if the key was not found or the value can't be convered to a Time.
 func Time(key string) time.Time {
-	value, state := c.m[key]
-	if !state {
+	value, found := c.m[key]
+	if !found {
 		panic(fmt.Sprintf("Unknown Key %s !", key))
 	}
 
-	ms, err := time.Parse(time.UnixDate, value)
+	tv, err := time.Parse(time.UnixDate, value)
 	if err != nil {
 		panic(fmt.Sprintf("Key %q value is not a Time", key))
 	}
 
-	return ms
+	return tv
 }
