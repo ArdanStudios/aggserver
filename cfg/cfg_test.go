@@ -1,7 +1,7 @@
 package cfg_test
 
 import (
-	"log"
+	"bytes"
 	"os"
 	"testing"
 
@@ -11,13 +11,28 @@ import (
 // succeed is the Unicode codepoint for a check mark.
 const succeed = "\u2713"
 
-// t.Fatalfed is the Unicode codepoint for an X mark.
+// failed is the Unicode codepoint for an X mark.
 const failed = "\u2717"
 
-// TestLoadingEnvironmentConfig validates the ability to load configuration values
-// using the OS-level environment variables.
-func TestLoadingEnvironmentConfig(t *testing.T) {
-	t.Log("Given a set of environment variables.")
+// logdest implements io.Writer and is the log package destination.
+var logdest bytes.Buffer
+
+// resetLog can be called at the beginning of a test or example.
+func resetLog() { logdest.Reset() }
+
+// displayLog can be called at the end of a test or example.
+// It only prints the log contents if the -test.v flag is set.
+func displayLog() {
+	if !testing.Verbose() {
+		return
+	}
+	logdest.WriteTo(os.Stdout)
+}
+
+// TestExists validates the ability to load configuration values
+// using the OS-level environment variables and read them back.
+func TestExists(t *testing.T) {
+	t.Log("Given the need to read environment variables.")
 	{
 		os.Setenv("MYAPP_PROC_ID", "322")
 		os.Setenv("MYAPP_SOCKET", "./tmp/sockets.po")
@@ -25,9 +40,8 @@ func TestLoadingEnvironmentConfig(t *testing.T) {
 
 		cfg.Init("myapp")
 
-		t.Log("\tWhen giving a namspace key to search for")
+		t.Log("\tWhen given a namspace key to search for that exists.")
 		{
-
 			if cfg.Int("proc_id") != 322 {
 				t.Errorf("\t\t%s Should have key %q with value %d", failed, "proc_id", 322)
 			} else {
@@ -45,20 +59,24 @@ func TestLoadingEnvironmentConfig(t *testing.T) {
 			} else {
 				t.Logf("\t\t%s Should have key %q with value %d", succeed, "port", 4034)
 			}
-
 		}
+	}
+}
 
-		t.Log("\tWhen validating cfg key retrieval response")
+// TestNotExists validates the ability to load configuration values
+// using the OS-level environment variables and panic when something
+// is missing.
+func TestNotExists(t *testing.T) {
+	t.Log("Given the need to panic when environment variables are missing.")
+	{
+		os.Setenv("MYAPP_PROC_ID", "322")
+		os.Setenv("MYAPP_SOCKET", "./tmp/sockets.po")
+		os.Setenv("MYAPP_PORT", "4034")
+
+		cfg.Init("myapp")
+
+		t.Log("\tWhen given a namspace key to search for that does NOT exist.")
 		{
-
-			shouldNotPanic(t, "socket", func() {
-				cfg.String("socket")
-			})
-
-			shouldNotPanic(t, "proc_id", func() {
-				cfg.Int("proc_id")
-			})
-
 			shouldPanic(t, "stamp", func() {
 				cfg.Time("stamp")
 			})
@@ -85,19 +103,6 @@ func shouldPanic(t *testing.T, context string, fx func()) {
 			t.Logf("\t\t%s Should paniced when giving unknown key %q.", succeed, context)
 		}
 	}()
-	fx()
-}
 
-// shouldNotPanic receives a context string and a function to run, if the function
-// does not panics, it is considered a success else a failure.
-func shouldNotPanic(t *testing.T, context string, fx func()) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("panic: %s", err)
-			t.Errorf("\t\t%s Should have not paniced when giving unknown key %q.", failed, context)
-		} else {
-			t.Logf("\t\t%s Should have not paniced when giving unknown key %q.", succeed, context)
-		}
-	}()
 	fx()
 }
