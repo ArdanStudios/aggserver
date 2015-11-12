@@ -48,7 +48,7 @@ func TestLoadingEnvironmentConfig(t *testing.T) {
 
 		}
 
-		t.Log("\tWhen validating config resposne")
+		t.Log("\tWhen validating cfg key retrieval response")
 		{
 
 			shouldNotPanic(t, "socket", func() {
