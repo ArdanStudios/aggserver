@@ -8,26 +8,23 @@ import (
 	"time"
 )
 
-// c represents the global struct, with a map used to store the loaded keys
-// from the environment variable.
+// c represents the configuration store, with a map to store the loaded keys
+// from the environment.
 var c struct {
 	m map[string]string
 }
 
 // Init is to be called only once, to load up the giving namespace if found,
-// in the environment/export variables. All keys will be made into lowerclass
-// using strings.ToLower.
+// in the environment variables. All keys will be made lowerclassed.
 func Init(namespace string) {
-	// Initialize the internal struct map
+	// Initialize the internal struct map.
 	c.m = make(map[string]string)
 
-	// This boolean value used to indicate atleast a once matching case with the
-	// namespace.
-	var found bool
+	// This boolean value used to indicate atleast that one key was found.
+	var foundOne bool
 
 	// Get the lists of available environment variables.
 	envs := os.Environ()
-
 	if len(envs) == 0 {
 		panic("No environment variables found")
 	}
@@ -35,33 +32,28 @@ func Init(namespace string) {
 	// Create the uppercase version to meet the standard {NAMESPACE_} format.
 	uspace := fmt.Sprintf("%s_", strings.ToUpper(namespace))
 
-	// Loop through and match each section using the uppercase namespace, by using
-	// strings.HasPrefix.
+	// Loop and match each variable using the uppercase namespace.
 	for _, val := range envs {
 		if !strings.HasPrefix(val, uspace) {
 			continue
 		}
 
-		found = true
+		foundOne = true
 		part := strings.Split(val, "=")
-		key := strings.ToLower(strings.TrimPrefix(part[0], uspace))
-		value := part[1]
-
-		// Probably just a string, so we save accordingly.
-		c.m[key] = value
+		c.m[strings.ToLower(strings.TrimPrefix(part[0], uspace))] = part[1]
 	}
 
-	if !found {
+	if !foundOne {
 		panic(fmt.Sprintf("Namespace %q was not found", namespace))
 	}
 }
 
 // String returns the value(in type string) of the giving key, else will panic
-// if the key does not exist.
+// if the key was not found.
 func String(key string) string {
-	// Get the keys value and bool check if it exists
+	// Get the key's value and existence status.
 	value, state := c.m[key]
-	// If key does not exists, panic.
+	// If key does not exists?, panic.
 	if !state {
 		panic(fmt.Sprintf("Unknown Key %s !", key))
 	}
@@ -69,12 +61,12 @@ func String(key string) string {
 	return value
 }
 
-// Int returns the value(in type int) of the giving key, else will panic
-// if the key does not exist or can not be parsed into an int.
+// Int returns the value(in type int) of the giving key, else panics
+// when not found.
 func Int(key string) int {
-	// Get the giving key and convert the string into a int value.
+	// Get the key's value and convert to a int.
 	intv, err := strconv.Atoi(String(key))
-	// If value can not be converted into an int type, then panic.
+	// If value can not be converted, then panic.
 	if err != nil {
 		panic(fmt.Sprintf("Key %q values is not a int type", key))
 	}
@@ -82,12 +74,12 @@ func Int(key string) int {
 	return intv
 }
 
-// Time returns the value(in type time.Time) of the giving key, else will panic
-// if the key does not exist, or can not be parsed into a time object.
+// Time returns the value(in type time.Time) of the giving key, else panics,
+// if the key does not exist, or can not be parsed into a valid time.Time.
 func Time(key string) time.Time {
-	// Get the value and attempt to parse it into a time object.
+	// Get the value and attempt to parse to time.Time.
 	ms, err := time.Parse(time.UnixDate, String(key))
-	// If error occured trying to pass value, then panic.
+	// If error occured, panic.
 	if err != nil {
 		panic(fmt.Sprintf("%q is unparsable as a time string due to error %s", String(key), err.Error()))
 	}
