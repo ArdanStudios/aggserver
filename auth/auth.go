@@ -1,11 +1,20 @@
 package auth
 
 import (
-	"sync"
 	"time"
 
 	"gopkg.in/mgo.v2"
 )
+
+// defaultConfig provides a default configuration to be loaded up by Init and
+// used to merge into non-provided values in configurations.
+var defaultConfig = Config{
+	Host:     []string{"ds035428.mongolab.com:35428"},
+	AuthDB:   "goinggo",
+	Username: "guest",
+	Password: "welcome",
+	DB:       "goinggo",
+}
 
 // Config provides configuration options for the Auth struct
 // to create the mongodb session.
@@ -17,9 +26,26 @@ type Config struct {
 	DB       string // Database to use for session.
 }
 
-// ConfigToDailInfo creates a mongo.DialInfo from a given
-// *Config.
-func ConfigToDailInfo(c *Config) *mgo.DialInfo {
+// mgoSession provides the global mongodb session for handling auth requests.
+var mgoSession mgo.Session
+
+// Init is to be called once and initializes the package session for handling
+// model CRUD and authentication requests.
+func Init(c *Config) {
+	if c == nil {
+		c = &defaultConfig
+	}
+
+	mgoSession, err := mgo.DialWithInfo(configToDailInfo(c))
+	if err != nil {
+		panic(err)
+	}
+
+	mgoSession.SetMode(mgo.Monotonic, true)
+}
+
+// configToDailInfo creates a mongo.DialInfo from a given *Config.
+func configToDailInfo(c *Config) *mgo.DialInfo {
 	return &mgo.DialInfo{
 		Addrs:    c.Host,
 		Timeout:  60 * time.Second,
@@ -27,22 +53,4 @@ func ConfigToDailInfo(c *Config) *mgo.DialInfo {
 		Username: c.Username,
 		Password: c.Password,
 	}
-}
-
-// Service provides an interface for a authentication service handler to
-// handle requests for a specific service.
-type Service interface {
-	Create(*mgo.Session, []byte) error
-	Update(*mgo.Session, []byte) error
-	Destroy(*mgo.Session, []byte) error
-	Authenticate(*mgo.Session, []byte) error
-}
-
-// Auth connects to a mongodb session and handles managment of entities CRUD and
-// authentication using service providers that meet the Service interface.
-type Auth struct {
-	*Config
-	*mgo.Session
-	serviceMutex     sync.RWMutex
-	serviceProviders map[string]Service // Map of entity service providers.
 }

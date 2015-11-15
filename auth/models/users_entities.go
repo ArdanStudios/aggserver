@@ -53,7 +53,46 @@ type UserEntity struct {
 	CreatedAt  *time.Time    `json:"created_at,omitempty" bson:"created_at"`
 }
 
-// Insert inserts the Company entity into the mongoDB database collection.
+// GetUserEntities returns a lists of all available User entities.
+func GetUserEntities(session *mgo.Session) ([]*UserEntity, error) {
+	var entities []*UserEntity
+
+	if err := common.MongoExecute(session, UserEntityDatabase, UserEntityCollection, func(co *mgo.Collection) error {
+		return co.Find(nil).All(&entity)
+	}); err != nil {
+		return nil, err
+	}
+
+	return entities, nil
+}
+
+// GetUserEntityByEmail returns a entity using the provided email.
+func GetUserEntityByEmail(session *mgo.Session, email string) (*UserEntity, error) {
+	var entity UserEntity
+
+	if err := common.MongoExecute(session, UserEntityDatabase, UserEntityCollection, func(co *mgo.Collection) error {
+		return co.Find(bson.M{"email": email}).One(&entity)
+	}); err != nil {
+		return nil, err
+	}
+
+	return &entity, nil
+}
+
+// GetUserEntityByPublicID returns a entity using the provided id.
+func GetUserEntityByPublicID(session *mgo.Session, publicID string) (*UserEntity, error) {
+	var entity UserEntity
+
+	if err := common.MongoExecute(session, UserEntityDatabase, UserEntityCollection, func(co *mgo.Collection) error {
+		return co.Find(bson.M{"public_id": publicID}).One(&entity)
+	}); err != nil {
+		return nil, err
+	}
+
+	return &entity, nil
+}
+
+// Insert inserts the User entity into the mongoDB database collection.
 // It returns a non-nil error if an error occurs
 func (c *UserEntity) Insert(session *mgo.Session) error {
 	return common.MongoExecute(session, UserEntityDatabase, UserEntityCollection, func(co *mgo.Collection) error {
@@ -61,7 +100,7 @@ func (c *UserEntity) Insert(session *mgo.Session) error {
 	})
 }
 
-// UserNew provides a struct for use in creating a new company entity.
+// UserNew provides a struct for use in creating a new User entity.
 type UserNew struct {
 	FirstName       string `json:"first_name"`
 	LastName        string `json:"last_name"`
@@ -70,21 +109,7 @@ type UserNew struct {
 	PasswordConfirm string `json:"password_confirm"`
 }
 
-// ValidatePassword validates the new password and password confirmation are a
-// match and that they follow the given requirements for a valid password.
-func (u *UserNew) ValidatePassword() error {
-	if err := ValidatePassword(u.Password); err != nil {
-		return err
-	}
-
-	if u.Password != u.PasswordConfirm {
-		return errors.New(InvalidPasswordError)
-	}
-
-	return nil
-}
-
-// Create defines a new company entity and saves it into the giving entity database
+// Create defines a new User entity and saves it into the giving entity database
 // using the provided mongo session and serializable data.
 func (c *UserEntity) Create(session *mgo.Session, newUser *UserNew) error {
 	publicUUID := uuid.NewV4()
@@ -155,7 +180,7 @@ func (c *UserEntity) ForgetPassword(session *mgo.Session, resetUser *UserPasswor
 	// If there is a pending then check if the time has not expired.
 	if pendingReset != nil {
 		if time.Since(pendingReset.ExpireAt) > (MaxTokenLifeTime * time.Hour) {
-			// We are passed the given time, so expire
+			// The pending request as expired. Remove.
 			if err := common.MongoExecute(session, UserEntityDatabase, UserEntityPasswordResetCollection, func(co *mgo.Collection) error {
 				return co.RemoveId(pendingReset.ID)
 			}); err != nil {
@@ -173,7 +198,7 @@ func (c *UserEntity) ForgetPassword(session *mgo.Session, resetUser *UserPasswor
 		return err
 	}
 
-	c.SerializeAsPublic()
+	// c.SerializeAsPublic()
 	return nil
 }
 
@@ -277,7 +302,7 @@ func (u *UserPasswordChange) ValidatePassword() error {
 	return nil
 }
 
-// UserUpdate provides a struct for use updating an existing company entity.
+// UserUpdate provides a struct for use updating an existing User entity.
 type UserUpdate struct {
 	FirstName string       `json:"first_name"`
 	LastName  string       `json:"last_name"`
@@ -289,7 +314,7 @@ type UserUpdate struct {
 	Token     string       `json:"token"`
 }
 
-// Update defines an update to a company's entity and updates the giving entity
+// Update defines an update to a User's entity and updates the giving entity
 // in the corresponding mongodb database and giving collection using the provided
 // mongo session and serializable data.
 func (c *UserEntity) Update(session *mgo.Session, updatingUser *UserUpdate) error {
@@ -326,7 +351,7 @@ type UserDestroy struct {
 	PublicID string `json:"public_id"`
 }
 
-// Destroy destroys/removes a company entity from the corresponding mongodb database
+// Destroy destroys/removes a User entity from the corresponding mongodb database
 // and giving collection using the provided mongo session and serializable data.
 func (c *UserEntity) Destroy(session *mgo.Session, destroyUser *UserDestroy) error {
 	// Check if credentails are not loaded then load the document.
@@ -379,6 +404,20 @@ func (c *UserEntity) AuthenticateAgainst(token string) error {
 	return crypto.IsValidTokenForEntity(c, token)
 }
 
+// ValidatePassword validates the new password and password confirmation are a
+// match and that they follow the given requirements for a valid password.
+func (u *UserNew) ValidatePassword() error {
+	if err := ValidatePassword(u.Password); err != nil {
+		return err
+	}
+
+	if u.Password != u.PasswordConfirm {
+		return errors.New(InvalidPasswordError)
+	}
+
+	return nil
+}
+
 // IsPasswordValid validates if the password belongs to the user entity and returns
 // a non-nil error if the password is not a match or if the entity is in a
 // invalid state.
@@ -399,7 +438,7 @@ func (c *UserEntity) IsPasswordValid(pwd string) error {
 	return nil
 }
 
-// SerializeAsPublic sets the company entity secret fields to defaults, to ensure
+// SerializeAsPublic sets the User entity secret fields to defaults, to ensure
 // only public allowed fields can be serialized.
 func (c *UserEntity) SerializeAsPublic(includeMeta ...bool) {
 	c.ID = ""

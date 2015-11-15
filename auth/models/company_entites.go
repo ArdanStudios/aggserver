@@ -61,7 +61,7 @@ func GetCompanyEntity(session *mgo.Session, name string) (*CompanyEntity, error)
 	return &entity, nil
 }
 
-// NewCompanyEntity creates and initializes a ne CompanyEntity.
+// NewCompanyEntity creates and initializes a new CompanyEntity.
 func NewCompanyEntity(name string, config map[string]interface{}) (*CompanyEntity, error) {
 	if config == nil {
 		config = make(map[string]interface{})

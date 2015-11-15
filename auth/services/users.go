@@ -16,19 +16,19 @@ type UserEntityService struct{}
 var UserService UserEntityService
 
 // All returns a list of available companies from the underline database.
-func (c *UserEntityService) All(session *mgo.Session, data []byte) ([]*models.UserEntity, error) {
-
+func (c *UserEntityService) All(session *mgo.Session) ([]*models.UserEntity, error) {
+	return models.GetUserEntities(session)
 }
 
-// GetUserByName gets a particular User using the supplied serializable data.
-func (c *UserEntityService) GetUserByName(session *mgo.Session, data []byte) (*models.UserEntity, error) {
-
+// GetUserByEmail gets a particular User using the supplied email data.
+func (c *UserEntityService) GetUserByEmail(session *mgo.Session, email string) (*models.UserEntity, error) {
+	return models.GetUserByEmail(session, email)
 }
 
 // GetUserByPublicID gets a particular User using the supplied serializable data.
 // Expects to receive a map with key public_id.
-func (c *UserEntityService) GetUserByPublicID(session *mgo.Session, data []byte) (*models.UserEntity, error) {
-
+func (c *UserEntityService) GetUserByPublicID(session *mgo.Session, pid string) (*models.UserEntity, error) {
+	return models.GetUserByPublicID(session, pid)
 }
 
 // Create initializes and creates the the user entity and saves it.
