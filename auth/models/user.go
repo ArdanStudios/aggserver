@@ -243,7 +243,7 @@ func (u *User) Create(newUser *UserNew) error {
 		return err
 	}
 
-	u.Password = string(p)
+	u.Password = p
 
 	// Set up the entity's authentication token.
 	if err := u.SetToken(); err != nil {
@@ -312,7 +312,7 @@ func (u *User) ChangePassword(changeUser *UserPasswordChange) error {
 type UserUpdate struct {
 	FirstName string              `json:"first_name"`
 	LastName  string              `json:"last_name"`
-	Addresses []UserAddress       `bson:"addresses" json:"addresses" validate:"required"`
+	Addresses []UserAddress       `bson:"addresses" json:"addresses"`
 	PublicID  string              `json:"public_id"`
 	Email     string              `json:"email"`
 	Status    common.EntityStatus `json:"status" `
@@ -334,14 +334,34 @@ func (u *User) Update(updatingUser *UserUpdate) error {
 		return errors.New("Invalid PublicID for entity")
 	}
 
-	u.FirstName = updatingUser.FirstName
-	u.LastName = updatingUser.LastName
-	u.Addresses = append([]UserAddress{}, updatingUser.Addresses...)
-	u.Email = updatingUser.Email
-	u.Company = updatingUser.Company
+	if updatingUser.FirstName != "" {
+		u.FirstName = updatingUser.FirstName
+	}
 
-	u.Status = updatingUser.Status
-	u.UserType = updatingUser.UserType
+	if updatingUser.LastName != "" {
+		u.LastName = updatingUser.LastName
+	}
+
+	if len(updatingUser.Addresses) > 0 {
+		u.Addresses = append([]UserAddress{}, updatingUser.Addresses...)
+	}
+
+	if updatingUser.Email != "" {
+		u.Email = updatingUser.Email
+	}
+
+	if updatingUser.Company != "" {
+		u.Company = updatingUser.Company
+	}
+
+	if updatingUser.Status != common.NoStatusEntity {
+
+		u.Status = updatingUser.Status
+	}
+
+	if updatingUser.UserType != common.UnknownType {
+		u.UserType = updatingUser.UserType
+	}
 
 	ms := time.Now()
 	u.ModifiedAt = &ms
@@ -370,13 +390,14 @@ func (u *User) AuthenticateLogin(userLogin *UserLoginAuthentication) error {
 		return errors.New(common.InvalidCredentailsError)
 	}
 
+	loginHash := []byte(u.PrivateID + userLogin.Password)
 	// Generate the hash corresponding with the given password
-	passwordHash, err := crypto.BcryptHash([]byte(u.PrivateID + userLogin.Password))
+	passwordHash, err := crypto.BcryptHash(loginHash)
 	if err != nil {
 		return err
 	}
 
-	return u.AuthenticateAgainst(string(passwordHash))
+	return u.AuthenticateAgainst(passwordHash)
 }
 
 // UserTokenAuthentication provides the necessary information needed for authenticating
@@ -392,6 +413,10 @@ func (u *User) AuthenticateToken(userAuth *UserTokenAuthentication) error {
 	// Check if credentails are not loaded then load the document.
 	if !u.isCredentailsLoaded() {
 		return errors.New(common.InvalidCredentailsError)
+	}
+
+	if u.PublicID != userAuth.PublicID {
+		return errors.New(common.CredentailsAuthError)
 	}
 
 	return u.AuthenticateAgainst(userAuth.Token)
@@ -420,7 +445,17 @@ func (u *User) IsPasswordValid(pwd string) error {
 		return err
 	}
 
-	if err := crypto.CompareBcryptHash([]byte(u.Password), hash); err != nil {
+	binHash, err := base64.StdEncoding.DecodeString(hash)
+	if err != nil {
+		return err
+	}
+
+	userBinHash, err := base64.StdEncoding.DecodeString(u.Password)
+	if err != nil {
+		return err
+	}
+
+	if err := crypto.CompareBcryptHash(binHash, userBinHash); err != nil {
 		return err
 	}
 

@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ArdanStudios/aggserver/auth/session"
 	"github.com/ArdanStudios/aggserver/log"
 )
 
@@ -34,5 +33,5 @@ func DisplayLog() {
 func init() {
 	// TODO: Need to read configuration.
 	log.Init(&logdest, func() int { return log.DEV })
-	session.Init(nil)
+	// session.Init(nil)
 }

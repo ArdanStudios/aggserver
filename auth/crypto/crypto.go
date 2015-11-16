@@ -19,13 +19,13 @@ type Entity interface {
 
 // BcryptHash generates a hash using the bcrypt encoding standard from a provided
 // []byte of the password string.
-func BcryptHash(pwd []byte) ([]byte, error) {
+func BcryptHash(pwd []byte) (string, error) {
 	crypted, err := bcrypt.GenerateFromPassword(pwd, bcrypt.DefaultCost)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return crypted, nil
+	return base64.StdEncoding.EncodeToString(crypted), nil
 }
 
 // CompareBcryptHash compares a given password to a bcrypted hash key. It returns
