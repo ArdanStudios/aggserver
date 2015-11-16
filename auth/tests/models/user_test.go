@@ -2,10 +2,8 @@
 package models
 
 import (
-	"log"
 	"testing"
 
-	"github.com/ArdanStudios/aggserver/auth/crypto"
 	"github.com/ArdanStudios/aggserver/auth/models"
 	"github.com/ArdanStudios/aggserver/auth/tests"
 )
@@ -57,8 +55,8 @@ func userCreate(t *testing.T) {
 				t.Logf("\t\tShould create user without errors %s", tests.Succeed)
 			}
 
-			pwd, _ := crypto.BcryptHash([]byte(user.PrivateID + "Zhu*fro8bzr"))
-			log.Printf("%s -> %s", user.Password, pwd)
+			// pwd, _ := crypto.BcryptHash([]byte(user.PrivateID + "Zhu*fro8bzr"))
+			// log.Printf("%s -> %s", user.Password, pwd)
 
 			if err := user.IsPasswordValid("Zhu*fro8bzr"); err != nil {
 				t.Errorf("\t\tShould have a valid password %s", tests.Failed)
@@ -114,7 +112,6 @@ func userLogin(t *testing.T) {
 				Password: "Zhu*fro8bzr",
 			})
 
-			log.Printf("auth: %s", err, user.Token, user.Password)
 			if err != nil {
 				t.Errorf("\t\tShould successfully authenticate %s", tests.Failed)
 			} else {
