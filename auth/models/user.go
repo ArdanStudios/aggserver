@@ -8,7 +8,7 @@ import (
 	"unicode"
 
 	"github.com/ArdanStudios/aggserver/auth/common"
-	"github.com/ArdanStudios/aggserver/auth/vendor/github.com/satori/go.uuid"
+	"github.com/satori/go.uuid"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"

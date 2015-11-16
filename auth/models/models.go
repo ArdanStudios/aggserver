@@ -1,7 +1,7 @@
 // Package models contains data structures and associated behavior.
 package models
 
-import "github.com/coralproject/shelf/xenia/vendor/gopkg.in/bluesuncorp/validator.v6"
+import "gopkg.in/bluesuncorp/validator.v6"
 
 // Invalid describes a validation error belonging to a specific field.
 type Invalid struct {

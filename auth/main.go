@@ -22,5 +22,6 @@ func main() {
 	// Initialize all sub-commanders
 	commands.InitUserCommands()
 	cli.AddCommand(commands.UserCommander())
+	cli.Execute()
 
 }

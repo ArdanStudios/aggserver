@@ -41,10 +41,12 @@ func (c *userService) AllUsers(session *mgo.Session) ([]*models.User, error) {
 	var entities []*models.User
 
 	log.User("userService", "userService.AllUsers", "Load all users")
-	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
+	err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
 		log.Dev("userService", "userService.AllUsers", "Completed")
 		return co.Find(nil).All(&entity)
-	}); err != nil {
+	})
+
+	if err != nil {
 		log.Dev("userService", "userService.AllUsers", "Database %s : Collection %s : Error %s", UserDatabase, UserCollection, err.Error())
 		return nil, err
 	}
