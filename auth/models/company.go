@@ -10,20 +10,20 @@ import (
 
 	"github.com/ArdanStudios/aggserver/auth/common"
 	"github.com/ArdanStudios/aggserver/auth/crypto"
-	"github.com/ArdanStudios/aggserver/auth/vendor/github/satori/go.uuid"
+	"github.com/ArdanStudios/aggserver/auth/vendor/github.com/satori/go.uuid"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
-// CompanyEntityDatabase defines the database to use.
-const CompanyEntityDatabase = ""
+// CompanyDatabase defines the database to use.
+const CompanyDatabase = ""
 
-// CompanyEntityCollection defines the collection to use in storing company entites.
-const CompanyEntityCollection = "companies"
+// CompanyCollection defines the collection to use in storing company entites.
+const CompanyCollection = "companies"
 
-// CompanyEntity represents a company based entity
+// Company represents a company based entity
 // to provide authentication using a company token
-type CompanyEntity struct {
+type Company struct {
 	ID         bson.ObjectId          `json:"id" bson:"id"`
 	Name       string                 `json:"name,omitempty" bson:"name"`
 	Token      string                 `json:"token,omitempty" bson:"-"`
@@ -35,34 +35,8 @@ type CompanyEntity struct {
 	CreatedAt  *time.Time             `json:"created_at,omitempty" bson:"created_at"`
 }
 
-// GetCompanyEntities returns a lists of all available company entities.
-func GetCompanyEntities(session *mgo.Session) ([]*CompanyEntity, error) {
-	var entities []*CompanyEntity
-
-	if err := common.MongoExecute(session, CompanyEntityDatabase, CompanyEntityCollection, func(co *mgo.Collection) error {
-		return co.Find(nil).All(&entity)
-	}); err != nil {
-		return nil, err
-	}
-
-	return entities, nil
-}
-
-// GetCompanyEntity returns a entity using the provided name.
-func GetCompanyEntity(session *mgo.Session, name string) (*CompanyEntity, error) {
-	var entity CompanyEntity
-
-	if err := common.MongoExecute(session, CompanyEntityDatabase, CompanyEntityCollection, func(co *mgo.Collection) error {
-		return co.Find(bson.M{"name": name}).One(&entity)
-	}); err != nil {
-		return nil, err
-	}
-
-	return &entity, nil
-}
-
-// NewCompanyEntity creates and initializes a new CompanyEntity.
-func NewCompanyEntity(name string, config map[string]interface{}) (*CompanyEntity, error) {
+// NewCompany creates and initializes a new Company.
+func NewCompany(name string, config map[string]interface{}) (*Company, error) {
 	if config == nil {
 		config = make(map[string]interface{})
 	}
@@ -73,7 +47,7 @@ func NewCompanyEntity(name string, config map[string]interface{}) (*CompanyEntit
 	createdAt := time.Now()
 	modifiedAt := time.Now()
 
-	company := CompanyEntity{
+	company := Company{
 		ID:         bson.NewObjectId(),
 		Name:       name,
 		Config:     config,
@@ -92,14 +66,6 @@ func NewCompanyEntity(name string, config map[string]interface{}) (*CompanyEntit
 	return &company
 }
 
-// Insert inserts the Company entity into the mongoDB database collection.
-// It returns a non-nil error if an error occurs
-func (c *CompanyEntity) Insert(session *mgo.Session) error {
-	return common.MongoExecute(session, CompanyEntityDatabase, CompanyEntityCollection, func(co *mgo.Collection) error {
-		return co.Insert(c)
-	})
-}
-
 // CompanyNew provides a struct for use in creating a new company entity.
 type CompanyNew struct {
 	Name   string                 `json:"name"`
@@ -108,7 +74,7 @@ type CompanyNew struct {
 
 // Create defines a new company entity and saves it into the giving entity database
 // using the provided mongo session and serializable data.
-func (c *CompanyEntity) Create(session *mgo.Session, data []byte) error {
+func (c *Company) Create(session *mgo.Session, data []byte) error {
 	var newCompany CompanyNew
 
 	if err := json.NewDecoder(bytes.NewBuffer(data)).Decode(&newCompany); err != nil {
@@ -136,13 +102,10 @@ func (c *CompanyEntity) Create(session *mgo.Session, data []byte) error {
 
 	// Set up the entity's authentication token.
 	if err := c.SetToken(); err != nil {
-		return nil, err
+		return err
 	}
 
-	// Insert this record into the database.
-	return common.MongoExecute(session, CompanyEntityDatabase, CompanyEntityCollection, func(co *mgo.Collection) error {
-		return co.Insert(c)
-	})
+	return nil
 }
 
 // CompanyUpdate provides a struct for use updating an existing company entity.
@@ -156,7 +119,7 @@ type CompanyUpdate struct {
 // Update defines an update to a company's entity and updates the giving entity
 // in the corresponding mongodb database and giving collection using the provided
 // mongo session and serializable data.
-func (c *CompanyEntity) Update(session *mgo.Session, data []byte) error {
+func (c *Company) Update(session *mgo.Session, data []byte) error {
 	var updatingCompany CompanyUpdate
 
 	if err := json.NewDecoder(bytes.NewBuffer(data)).Decode(&updatingCompany); err != nil {
@@ -176,24 +139,16 @@ func (c *CompanyEntity) Update(session *mgo.Session, data []byte) error {
 
 	c.ModifiedAt = time.Now()
 
-	return common.MongoExecute(session, CompanyEntityDatabase, CompanyEntityCollection, func(co *mgo.Collection) error {
+	return common.MongoExecute(session, CompanyDatabase, CompanyCollection, func(co *mgo.Collection) error {
 		return co.UpdateId(c.ID, c)
-	})
-}
-
-// Destroy destroys/removes a company entity from the corresponding mongodb database
-// and giving collection using the provided mongo session and serializable data.
-func (c *CompanyEntity) Destroy(session *mgo.Session) error {
-	return common.MongoExecute(session, CompanyEntityDatabase, CompanyEntityCollection, func(co *mgo.Collection) error {
-		return co.RemoveId(c.ID)
 	})
 }
 
 // Authenticate authenticates the token against the entity. It returns a non-nil
 // error if the token is invalid
-func (c *CompanyEntity) Authenticate(token string) error {
+func (c *Company) Authenticate(token string) error {
 	if token == "" {
-		return errors.New(credentailsAuthError)
+		return errors.New(common.CredentailsAuthError)
 	}
 
 	return crypto.IsValidTokenForEntity(c, token)
@@ -201,7 +156,7 @@ func (c *CompanyEntity) Authenticate(token string) error {
 
 // SerializeAsPublic sets the company entity secret fields to defaults, to ensure
 // only public allowed fields can be serialized.
-func (c *CompanyEntity) SerializeAsPublic(includeMeta ...bool) {
+func (c *Company) SerializeAsPublic(includeMeta ...bool) {
 	c.ID = ""
 	c.Status = 0
 	c.PrivateID = ""
@@ -213,7 +168,7 @@ func (c *CompanyEntity) SerializeAsPublic(includeMeta ...bool) {
 }
 
 // SetToken sets the entity's token.
-func (c *CompanyEntity) SetToken() error {
+func (c *Company) SetToken() error {
 	token, err := crypto.TokenForEntity(c)
 	if err != nil {
 		return er
@@ -225,7 +180,7 @@ func (c *CompanyEntity) SetToken() error {
 
 // Pwd returns the password to be used in creating the authentication
 // token for the given entity. It satifies the crypto.Entity interface.
-func (c *CompanyEntity) Pwd() ([]byte, error) {
+func (c *Company) Pwd() ([]byte, error) {
 	if c.PrivateID == "" {
 		return nil, errors.New("Invalid Tenant Pwd")
 	}
@@ -235,7 +190,7 @@ func (c *CompanyEntity) Pwd() ([]byte, error) {
 
 // Salt returns the salt key to be used in creating the authentication
 // token for the given entity. It satifies the crypto.Entity interface.
-func (c *CompanyEntity) Salt() ([]byte, error) {
+func (c *Company) Salt() ([]byte, error) {
 	if c.PrivateID == "" || c.PublicID == "" {
 		return nil, errors.New("Invalid Tenant Salt")
 	}
@@ -247,7 +202,7 @@ func (c *CompanyEntity) Salt() ([]byte, error) {
 // ConfigKey loads the giving configuration key into the provided object else
 // returns a non-nil error if the key does not exists or was not able to load
 // into the giving store.
-func (c *CompanyEntity) ConfigKey(key string, store interface{}) error {
+func (c *Company) ConfigKey(key string, store interface{}) error {
 
 	return nil
 }
