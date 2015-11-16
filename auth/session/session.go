@@ -1,6 +1,7 @@
-package auth
+package session
 
 import (
+	"errors"
 	"time"
 
 	"gopkg.in/mgo.v2"
@@ -26,8 +27,14 @@ type Config struct {
 	DB       string // Database to use for session.
 }
 
-// mgoSession provides the global mongodb session for handling auth requests.
-var mgoSession mgo.Session
+// mongoSession provides a structure for housing the current mongodb session instance.
+type mongoSession struct {
+	session *mgo.Session
+}
+
+// session provides a global session handler for authentication and entities CRUD
+// management.
+var session mongoSession
 
 // Init is to be called once and initializes the package session for handling
 // model CRUD and authentication requests.
@@ -42,6 +49,29 @@ func Init(c *Config) {
 	}
 
 	mgoSession.SetMode(mgo.Monotonic, true)
+
+	session.session = mgoSession
+}
+
+// Session returns the current active mongodb session.
+// Returns a non-nil error if no session was active, i.e
+// Init() was not yet called.
+func Session() (*mgo.Session, error) {
+	if session.session == nil {
+		return nil, errors.New("Invalid Session")
+	}
+
+	return session.session, nil
+}
+
+// MustSession returns the current active mongodb session.
+// Panics if Init() has not being called to setup the session yet.
+func MustSession() *mgo.Session {
+	if session.session == nil {
+		panic("Invalid Session, Call Init(*Config)")
+	}
+
+	return session.session
 }
 
 // configToDailInfo creates a mongo.DialInfo from a given *Config.

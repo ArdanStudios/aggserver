@@ -1,4 +1,4 @@
-package models
+package common
 
 import "gopkg.in/mgo.v2"
 
@@ -15,8 +15,11 @@ type EntityStatus int
 
 // constants of the different available company status.
 const (
-	EntityInactive EntityStatus = iota
-	EntityActive
+	NoStatusEntity EntityStatus = iota
+	InactiveEntity
+	ActiveEntity
+	DisabledEntity
+	DestroyedEntity
 )
 
 // EntityCreate defines an interface for creating a new entity from a serializable data
@@ -46,7 +49,7 @@ type EntityUpdate interface {
 // EntityAuthenticate defines an interface for the updating an entity
 // using a mongo session and its serializable update data.
 type EntityAuthenticate interface {
-	Authenticate(string) error
+	Authenticate(*mgo.Session, []byte) error
 }
 
 // EntityAuthable defines a composed interface of all operations an entity

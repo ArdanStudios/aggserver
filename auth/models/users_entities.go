@@ -40,17 +40,17 @@ const UserEntityPasswordResetCollection = "users_password_resets"
 
 // UserEntity represents an entity for user records.
 type UserEntity struct {
-	ID         bson.ObjectId `json:"id" bson:"id"`
-	FirstName  string        `json:"first_name,omitempty" bson:"first_name"`
-	LastName   string        `json:"last_name,omitempty" bson:"last_name"`
-	Token      string        `json:"token,omitempty" bson:"-"`
-	PublicID   string        `json:"public_id,omitempty" bson:"public_id"`
-	PrivateID  string        `json:"private_id,omitempty" bson:"private_id"`
-	Email      string        `bson:"email" json:"email"`
-	Password   string        `bson:"password" json:"password,omitempty"`
-	Status     EntityStatus  `json:"status" bson:"status"`
-	ModifiedAt *time.Time    `json:"modified_at,omitempty" bson:"modified_at"`
-	CreatedAt  *time.Time    `json:"created_at,omitempty" bson:"created_at"`
+	ID         bson.ObjectId       `json:"id" bson:"id"`
+	FirstName  string              `json:"first_name,omitempty" bson:"first_name"`
+	LastName   string              `json:"last_name,omitempty" bson:"last_name"`
+	Token      string              `json:"token,omitempty" bson:"-"`
+	PublicID   string              `json:"public_id,omitempty" bson:"public_id"`
+	PrivateID  string              `json:"private_id,omitempty" bson:"private_id"`
+	Email      string              `bson:"email" json:"email"`
+	Password   string              `bson:"password" json:"password,omitempty"`
+	Status     common.EntityStatus `json:"status" bson:"status"`
+	ModifiedAt *time.Time          `json:"modified_at,omitempty" bson:"modified_at"`
+	CreatedAt  *time.Time          `json:"created_at,omitempty" bson:"created_at"`
 }
 
 // GetUserEntities returns a lists of all available User entities.
@@ -125,7 +125,7 @@ func (c *UserEntity) Create(session *mgo.Session, newUser *UserNew) error {
 	c.PrivateID = privateUUID.String()
 	c.CreatedAt = createdAt
 	c.ModifiedAt = modifiedAt
-	c.Status = EntityActive
+	c.Status = common.ActiveEntity
 
 	// create the user password hash
 	p, err := crypto.BcryptHash(c.PrivateID + newUser.Password)
@@ -304,14 +304,14 @@ func (u *UserPasswordChange) ValidatePassword() error {
 
 // UserUpdate provides a struct for use updating an existing User entity.
 type UserUpdate struct {
-	FirstName string       `json:"first_name"`
-	LastName  string       `json:"last_name"`
-	Email     string       `json:"email"`
-	Username  string       `json:"username"`
-	Password  string       `json:"password"`
-	PublicID  string       `json:"public_id"`
-	Status    EntityStatus `json:"status" `
-	Token     string       `json:"token"`
+	FirstName string              `json:"first_name"`
+	LastName  string              `json:"last_name"`
+	Email     string              `json:"email"`
+	Username  string              `json:"username"`
+	Password  string              `json:"password"`
+	PublicID  string              `json:"public_id"`
+	Status    common.EntityStatus `json:"status" `
+	Token     string              `json:"token"`
 }
 
 // Update defines an update to a User's entity and updates the giving entity
@@ -372,16 +372,44 @@ func (c *UserEntity) Destroy(session *mgo.Session, destroyUser *UserDestroy) err
 	return nil
 }
 
-// UserAuthentication provides the necessary credentials needed for authenticating
-// a user entity.
-type UserAuthentication struct {
+// UserLoginAuthentication provides the necessary information needed for authenticating
+// a user entity using the login crendentails.
+type UserLoginAuthentication struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// AuthenticateLogin authenticates the login crendentials against the given user
+// entity. It returns a non-nil error if the crendetails are invalid.
+func (c *UserEntity) AuthenticateLogin(session *mgo.Session, userLogin *UserLoginAuthentication) error {
+	// Check if credentails are not loaded then load the document.
+	if !c.isCredentailsLoaded() {
+		if err := common.MongoExecute(session, UserEntityDatabase, UserEntityCollection, func(co *mgo.Collection) error {
+			return co.Find(bson.M{"email": userLogin.Email}).One(c)
+		}); err != nil {
+			return err
+		}
+	}
+
+	// Generate the hash corresponding with the given password
+	passwordHash, err := crypto.BycryptHash(c.PrivateID + userLogin.Password)
+	if err != nil {
+		return err
+	}
+
+	return c.AuthenticateAgainst(passwordHash.String())
+}
+
+// UserTokenAuthentication provides the necessary information needed for authenticating
+// a user entity using the Token and PublicID credentials.
+type UserTokenAuthentication struct {
 	PublicID string `json:"public_id"`
 	Token    string `json:"public_id"`
 }
 
-// Authenticate authenticates the token against the entity. It returns a non-nil
+// AuthenticateToken authenticates the token against the entity. It returns a non-nil
 // error if the token is invalid
-func (c *UserEntity) Authenticate(session *mgo.Session, userAuth *UserAuthentication) error {
+func (c *UserEntity) AuthenticateToken(session *mgo.Session, userAuth *UserAuthentication) error {
 	// Check if credentails are not loaded then load the document.
 	if !c.isCredentailsLoaded() {
 		if err := common.MongoExecute(session, UserEntityDatabase, UserEntityCollection, func(co *mgo.Collection) error {

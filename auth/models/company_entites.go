@@ -29,7 +29,7 @@ type CompanyEntity struct {
 	Token      string                 `json:"token,omitempty" bson:"-"`
 	PublicID   string                 `json:"public_id,omitempty" bson:"public_id"`
 	PrivateID  string                 `json:"private_id,omitempty" bson:"private_id"`
-	Status     EntityStatus           `json:"status" bson:"status"`
+	Status     common.EntityStatus    `json:"status" bson:"status"`
 	Config     map[string]interface{} `json:"config,omitempty" bson:"config"`
 	ModifiedAt *time.Time             `json:"modified_at,omitempty" bson:"modified_at"`
 	CreatedAt  *time.Time             `json:"created_at,omitempty" bson:"created_at"`
@@ -81,6 +81,7 @@ func NewCompanyEntity(name string, config map[string]interface{}) (*CompanyEntit
 		PrivateID:  privateUUID.String(),
 		ModifiedAt: modifiedAt,
 		CreatedAt:  createdAt,
+		Status:     common.ActiveStatus,
 	}
 
 	// Setup the entity's authentication token
@@ -148,7 +149,7 @@ func (c *CompanyEntity) Create(session *mgo.Session, data []byte) error {
 type CompanyUpdate struct {
 	PublicID string                 `json:"public_id"`
 	Name     string                 `json:"name"`
-	Status   EntityStatus           `json:"status" `
+	Status   common.EntityStatus    `json:"status" `
 	Config   map[string]interface{} `json:"config"`
 }
 

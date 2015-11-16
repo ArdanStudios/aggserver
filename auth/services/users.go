@@ -104,6 +104,25 @@ func (c *UserEntityService) Update(session *mgo.Session, data []byte) (*models.U
 	return user, nil
 }
 
+// Login authenticates the validity of a entity's credentails from the
+// serializable data provided.
+func (c *UserEntityService) Login(session *mgo.Session, data []byte) (*models.UserEntity, error) {
+	var authUser models.UserLoginAuthentication
+
+	err := json.NewDecoder(bytes.NewBuffer(data)).Decode(&authUser)
+	if err != nil {
+		return err
+	}
+
+	user := new(models.UserEntity)
+	if err := user.AuthenticateLogin(session, &authUser); err != nil {
+		return err
+	}
+
+	user.SerializeAsPublic()
+	return user, nil
+}
+
 // Authenticate authenticates the giving entity from the credentails from the map
 func (c *UserEntityService) Authenticate(session *mgo.Session, data []byte) (*models.UserEntity, error) {
 	var authUser models.UserAuthentication
