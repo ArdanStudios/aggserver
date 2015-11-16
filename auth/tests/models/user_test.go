@@ -54,10 +54,13 @@ func TestUsers(t *testing.T) {
 func userCreate(t *testing.T, session *mgo.Session) {
 	t.Log("Given the need to create a new user.")
 	{
-		t.Log("When giving a models.UserNew struct")
+		t.Log("\tWhen giving a models.UserNew struct")
 		{
-
-			t.Log("Should create user without errors")
+			err := user.Create(u)
+			if err != nil {
+				t.Errorf("\t\tShould create user without errors %s", tests.Failed)
+			}
+			t.Logf("\t\tShould create user without errors %s", tests.Suceed)
 		}
 	}
 }

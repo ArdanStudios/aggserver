@@ -4,6 +4,7 @@ import (
 	"log"
 	"testing"
 
+	"github.com/ArdanStudios/aggserver/auth/services"
 	"github.com/ArdanStudios/aggserver/auth/session"
 	"github.com/coralproject/shelf/xenia/tests"
 )
@@ -37,10 +38,14 @@ func TestUsers(t *testing.T) {
 
 	t.Log("Given the need to create a new user.")
 	{
-		t.Log("When giving a models.UserNew struct")
+		t.Log("\tWhen giving a user json credentails")
 		{
 
-			t.Log("Should create user without errors")
+			err := services.UserService.Create(dbSession, []byte(newUser))
+			if err != nil {
+				t.Logf("\t\tShould create user without errors %s", tests.Failed)
+			}
+			t.Logf("\t\tShould create user without errors %s", tests.Succeed)
 		}
 	}
 
