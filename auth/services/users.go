@@ -36,14 +36,14 @@ var UserService userService
 
 // AllUsers returns a list of available companies from the underline database.
 // Returns the users lists if found or else returns a non-nil error.
-func (c *userService) AllUsers(session *mgo.Session) ([]*models.User, error) {
+func (c *userService) AllUsers(session *mgo.Session) ([]models.User, error) {
 	log.Dev("userService", "userService.AllUsers", "Started")
-	var entities []*models.User
+	var entities []models.User
 
 	log.User("userService", "userService.AllUsers", "Load all users")
 	err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
 		log.Dev("userService", "userService.AllUsers", "Completed")
-		return co.Find(nil).All(&entity)
+		return co.Find(nil).All(&entities)
 	})
 
 	if err != nil {
@@ -72,6 +72,24 @@ func (c *userService) GetUserByEmail(session *mgo.Session, email string) (*model
 	return &entity, nil
 }
 
+// GetUsersByType gets a particular User using the supplied user type of the entity.
+// Returns the user if found or else returns a non-nil error.
+func (c *userService) GetUsersByType(session *mgo.Session, userType int) ([]models.User, error) {
+	log.Dev("userService", "userService.GetUserByPublicID", "Started For User Type %d", userType)
+	var entities []models.User
+
+	log.User("userService", "userService.GetUserByType", "User Type %d", userType)
+	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
+		log.Dev("userService", "userService.GetUserByType", "Completed For User Type %d", userType)
+		return co.Find(bson.M{"user_type": userType}).All(&entities)
+	}); err != nil {
+		log.Dev("userService", "userService.GetUserByType", "User Type %d : Error : %s", userType, err.Error())
+		return nil, err
+	}
+
+	return entities, nil
+}
+
 // GetUserByPublicID gets a particular User using the supplied PublicID of the entity.
 // Returns the user if found or else returns a non-nil error.
 func (c *userService) GetUserByPublicID(session *mgo.Session, pid string) (*models.User, error) {
@@ -81,9 +99,9 @@ func (c *userService) GetUserByPublicID(session *mgo.Session, pid string) (*mode
 	log.User("userService", "userService.GetUserByPublicID", "User ID %s", pid)
 	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
 		log.Dev("userService", "userService.GetUserByPublicID", "Completed For User ID %s", pid)
-		return co.Find(bson.M{"public_id": publicID}).One(&entity)
+		return co.Find(bson.M{"public_id": pid}).One(&entity)
 	}); err != nil {
-		log.Dev("userService", "userService.GetUserByPublicID", "User ID %s : Error : %s", err.Error())
+		log.Dev("userService", "userService.GetUserByPublicID", "User ID %s : Error : %s", pid, err.Error())
 		return nil, err
 	}
 
@@ -112,7 +130,7 @@ func (c *userService) Save(session *mgo.Session, data []byte) (*models.User, err
 	}
 
 	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
-		log.Dev("userService", "userService.Save", "Finished for User : Meta %s : Email %s", meta, u.Email)
+		log.Dev("userService", "userService.Save", "Finished for User : Meta %s : Email %s", meta, user.Email)
 		return co.Insert(&user)
 	}); err != nil {
 		log.Dev("userService", "userService.Save", "Save User : Meta %s : Error : %s", meta, err.Error())
@@ -140,7 +158,7 @@ func (c *userService) Create(session *mgo.Session, data []byte) (*models.User, e
 	log.User("userService", "userService.Create", "Service : Entity : Create : %s", meta)
 
 	user := new(models.User)
-	if err := user.Create(session, &newUser); err != nil {
+	if err := user.Create(&newUser); err != nil {
 		log.Dev("userService", "userService.Create", "Session : Create %s : Error : %s", meta, err.Error())
 		return nil, err
 	}
@@ -192,7 +210,7 @@ func (c *userService) ForgetPassword(session *mgo.Session, data []byte) (*models
 
 	if err := common.MongoExecute(session, UserDatabase, UserPasswordResetCollection, func(co *mgo.Collection) error {
 		log.Dev(forgetUser.PublicID, "userService.ForgetPassword", "Pending : UserPasswordReset : Completed")
-		return co.Find(bson.M{"public_id": resetUser.PublicID, "token": resetUser.Token}).One(&pendingReset)
+		return co.Find(bson.M{"public_id": forgetUser.PublicID, "token": forgetUser.Token}).One(&pendingReset)
 	}); err != nil {
 		log.Dev(forgetUser.PublicID, "userService.ForgetPassword", "Pending : UserPasswordReset : Error  %s", err.Error())
 		return nil, err
@@ -201,10 +219,10 @@ func (c *userService) ForgetPassword(session *mgo.Session, data []byte) (*models
 	log.User(forgetUser.PublicID, "userService.ForgetPassword", "Pending : Check Expiration")
 
 	// If there is one pending, then check if the time has not expired.
-	ms := time.Since(pendingReset.ExpireAt)
+	ms := time.Since(*(pendingReset.ExpireAt))
 	log.Dev(forgetUser.PublicID, "userService.ForgetPassword", "Pending : Check Expiration : Expired at %q : Elapsed %q", pendingReset.ExpireAt, ms)
 
-	if ms.Hours() > MaxUserResetLife {
+	if ms.Hours() > MaxUserResetLife.Hours() {
 		// The pending request as expired. Remove.
 		log.User(pendingReset.PublicID, "userService.ForgetPassword", "Started : Pending : Remove Expired Reset")
 		if err := common.MongoExecute(session, UserDatabase, UserPasswordResetCollection, func(co *mgo.Collection) error {
@@ -230,7 +248,7 @@ func (c *userService) ForgetPassword(session *mgo.Session, data []byte) (*models
 		return nil, err
 	}
 
-	user.SanitizeAsPublic()
+	user.SerializeAsPublic()
 	return &user, nil
 }
 
@@ -253,20 +271,20 @@ func (c *userService) ResetPassword(session *mgo.Session, data []byte) (*models.
 		return nil, err
 	}
 
-	var pending UserPasswordReset
+	var pending models.UserPasswordReset
 
 	log.User(changeUser.PublicID, "userService.ResetPassword", "Load UserPasswordReset")
 	if err := common.MongoExecute(session, UserDatabase, UserPasswordResetCollection, func(co *mgo.Collection) error {
 		log.Dev(changeUser.PublicID, "userService.ResetPassword", "Load UserPasswordReset : Complete")
-		return co.Find(bson.M{"public_id": changeUser.PublicID, "token": changeUser.Token}).One(&pendingReset)
+		return co.Find(bson.M{"public_id": changeUser.PublicID, "token": changeUser.Token}).One(&pending)
 	}); err != nil {
 		log.Dev(changeUser.PublicID, "userService.ResetPassword", "Load UserPasswordReset : Error %s", err.Error())
 		return nil, err
 	}
 
-	ms := time.Since(pending.ExpireAt)
-	log.User(changeUser.PublicID, "userService.ResetPassword", "PasswordReset : Time %s : Elapsed %s", pending.ExpiredAt, ms)
-	if ms.Hours() > MaxUserResetLife {
+	ms := time.Since(*(pending.ExpireAt))
+	log.User(changeUser.PublicID, "userService.ResetPassword", "PasswordReset : Time %s : Elapsed %s", pending.ExpireAt, ms)
+	if ms.Hours() > MaxUserResetLife.Hours() {
 		log.Dev(changeUser.PublicID, "userService.ResetPassword", "PasswordReset : Expired")
 		return nil, errors.New("PasswordReset Expired")
 	}
@@ -282,13 +300,13 @@ func (c *userService) ResetPassword(session *mgo.Session, data []byte) (*models.
 	}
 
 	log.User(changeUser.PublicID, "userService.ResetPassword", "User : ChangePassword")
-	if err := user.ChangePassword(session, &changeUser); err != nil {
+	if err := user.ChangePassword(&changeUser); err != nil {
 		log.Dev(changeUser.PublicID, "userService.ResetPassword", "User : ChangePassword : Error %s", err.Error())
 		return nil, err
 	}
 
-	q := bson.M{"public_id": c.PublicID}
-	mod := bson.M{"password": c.Password, "modified_at": c.ModifiedAt}
+	q := bson.M{"public_id": changeUser.PublicID}
+	mod := bson.M{"password": user.Password, "modified_at": user.ModifiedAt}
 
 	log.Dev(changeUser.PublicID, "userService.ResetPassword", "User : Mongodb.Update() : Started")
 	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
@@ -302,13 +320,13 @@ func (c *userService) ResetPassword(session *mgo.Session, data []byte) (*models.
 	// within the range.
 	now := time.Now()
 	expired := now.Add(MaxUserResetLife)
-	q := bson.M{"expired_at": bson.M{"$lt": expired}}
+	q = bson.M{"expired_at": bson.M{"$lt": expired}}
 
 	log.Dev(changeUser.PublicID, "userService.ResetPassword", "UserPasswordReset Collection : Mongodb.RemovalAll() : Started")
 	// Remove all pending requests regardless of ID that has expired.
 	if err := common.MongoExecute(session, UserDatabase, UserPasswordResetCollection, func(co *mgo.Collection) error {
 		log.Dev(changeUser.PublicID, "userService.ResetPassword", "UserPasswordReset Collection : Mongodb.RemovalAll() : Completed")
-		return co.RemoveAll(q)
+		return co.Remove(q)
 	}); err != nil {
 		log.Dev(changeUser.PublicID, "userService.ResetPassword", "UserPasswordReset Collection : Mongodb.RemovalAll() : Error %s", err.Error())
 		return nil, err
@@ -316,7 +334,7 @@ func (c *userService) ResetPassword(session *mgo.Session, data []byte) (*models.
 
 	user.SerializeAsPublic()
 	log.Dev("userService", "userService.ResetPassword", "Completed")
-	return user, nil
+	return &user, nil
 }
 
 // ChangePassword resets the giving password with the appropriate credentails from
@@ -351,13 +369,13 @@ func (c *userService) ChangePassword(session *mgo.Session, data []byte) (*models
 	}
 
 	log.User(changeUser.PublicID, "userService.ChangePassword", "User : User.ChangePassword")
-	if err := user.ChangePassword(session, &changeUser); err != nil {
+	if err := user.ChangePassword(&changeUser); err != nil {
 		log.Dev(changeUser.PublicID, "userService.ChangePassword", "User : User.ChangePassword : Error %s", err.Error())
 		return nil, err
 	}
 
-	q := bson.M{"public_id": c.PublicID}
-	mod := bson.M{"password": c.Password, "modified_at": c.ModifiedAt}
+	q := bson.M{"public_id": changeUser.PublicID}
+	mod := bson.M{"password": user.Password, "modified_at": user.ModifiedAt}
 
 	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
 		log.Dev(user.PublicID, "userService.ChangePassword", "Completed")
@@ -368,7 +386,7 @@ func (c *userService) ChangePassword(session *mgo.Session, data []byte) (*models
 	}
 
 	user.SerializeAsPublic()
-	return user, nil
+	return &user, nil
 }
 
 // Destroy destroys the giving entity from the credentails from the serializable
@@ -390,7 +408,7 @@ func (c *userService) Destroy(session *mgo.Session, data []byte) (*models.User, 
 	log.Dev(destroyUser.PublicID, "userService.Destroy", "User : Load User : Mongodb.Find().One()")
 	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
 		log.Dev(destroyUser.PublicID, "userService.Destroy", "Completed : User : Load User : Mongodb.Find().One()")
-		return co.Find(bson.M{"public_id": changeUser.PublicID}).One(&user)
+		return co.Find(bson.M{"public_id": destroyUser.PublicID}).One(&user)
 	}); err != nil {
 		log.Dev(destroyUser.PublicID, "userService.Destroy", "User : Load User : Mongodb.Find().One() : Error %s", err.Error())
 		return nil, err
@@ -398,14 +416,14 @@ func (c *userService) Destroy(session *mgo.Session, data []byte) (*models.User, 
 
 	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
 		log.Dev("userService", "userService.Destroy", "Completed")
-		return co.RemoveId(c.ID)
+		return co.RemoveId(user.ID)
 	}); err != nil {
 		log.Dev("userService", "userService.Destroy", "Error %s", err.Error())
-		return err
+		return nil, err
 	}
 
 	user.SerializeAsPublic()
-	return user, nil
+	return &user, nil
 }
 
 // Update updates the giving entity from the credentails from the serializable
@@ -427,21 +445,21 @@ func (c *userService) Update(session *mgo.Session, data []byte) (*models.User, e
 	log.Dev(updateUser.PublicID, "userService.Update", "User : UserDatabase %s : UserCollection %s : Mongodb.Find().One()", UserDatabase, UserCollection)
 	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
 		log.Dev(updateUser.PublicID, "userService.Update", "Complete : User : UserDatabase %s : UserCollection %s : Mongodb.Find().One()", UserDatabase, UserCollection)
-		return co.Find(bson.M{"public_id": changeUser.PublicID}).One(&user)
+		return co.Find(bson.M{"public_id": updateUser.PublicID}).One(&user)
 	}); err != nil {
 		log.Dev(updateUser.PublicID, "userService.Update", "Complete Error %s : User : UserDatabase %s : UserCollection %s : Mongodb.Find().One()", UserDatabase, UserCollection, err.Error())
 		return nil, err
 	}
 
 	log.User(updateUser.PublicID, "userService.Update", "User : User.Update()")
-	if err := user.Update(session, &updateUser); err != nil {
+	if err := user.Update(&updateUser); err != nil {
 		log.Dev(updateUser.PublicID, "userService.Update", "User : User.Update() : Error %s", err.Error())
 		return nil, err
 	}
 
 	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
 		log.Dev("userService", "userService.Update", "Completed")
-		return co.UpdateId(c.ID, c)
+		return co.UpdateId(user.ID, &user)
 	}); err != nil {
 		log.Dev("userService", "userService.Update", "Completed Error %s", err.Error())
 		return nil, err
@@ -449,7 +467,7 @@ func (c *userService) Update(session *mgo.Session, data []byte) (*models.User, e
 
 	user.SerializeAsPublic()
 
-	return user, nil
+	return &user, nil
 }
 
 // Login authenticates the validity of a entity's credentails from the
@@ -472,21 +490,21 @@ func (c *userService) Login(session *mgo.Session, data []byte) (*models.User, er
 	log.User("userService", "userService.Login", "User : LoadUser : Email %s", authUser.Email)
 	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
 		log.Dev(authUser.Email, "userService.Login", "User : Mongodb.Find().One : Success")
-		return co.Find(bson.M{"public_id": changeUser.PublicID}).One(&user)
+		return co.Find(bson.M{"email": authUser.Email}).One(&user)
 	}); err != nil {
 		log.Dev(authUser.Email, "userService.Login", "User : Mongodb.Find().One : Error %s", err.Error())
 		return nil, err
 	}
 
 	log.User(authUser.Email, "userService.Login", "AuthenticateLogin: Started")
-	if err := user.AuthenticateLogin(session, &authUser); err != nil {
+	if err := user.AuthenticateLogin(&authUser); err != nil {
 		log.Dev(authUser.Email, "userService.Login", "AuthenticateLogin : Completed Error %s", err.Error())
 		return nil, err
 	}
 
 	log.Dev("userService", "userService.Login", "Completed")
 	user.SerializeAsPublic()
-	return user, nil
+	return &user, nil
 }
 
 // Authenticate authenticates the giving entity from the credentails from the
@@ -494,7 +512,7 @@ func (c *userService) Login(session *mgo.Session, data []byte) (*models.User, er
 // Returns a non-nil error if the authentication failed, else returns the user entity.
 func (c *userService) Authenticate(session *mgo.Session, data []byte) (*models.User, error) {
 	log.Dev("userService", "userService.Authenticate", "Started")
-	var authUser models.UserAuthentication
+	var authUser models.UserTokenAuthentication
 
 	log.Dev("userService", "userService.Authenticate", "User : JSONDecoder.Decode")
 	err := json.NewDecoder(bytes.NewBuffer(data)).Decode(&authUser)
@@ -505,22 +523,22 @@ func (c *userService) Authenticate(session *mgo.Session, data []byte) (*models.U
 
 	var user models.User
 
-	log.User("userService", "userService.Authenticate", "User : LoadUser : Email %s", authUser.Email)
+	log.User(authUser.PublicID, "userService.Authenticate", "User : LoadUser")
 	if err := common.MongoExecute(session, UserDatabase, UserCollection, func(co *mgo.Collection) error {
-		log.Dev(authUser.Email, "userService.Authenticate", "User : Mongodb.Find().One : Success")
-		return co.Find(bson.M{"public_id": changeUser.PublicID}).One(&user)
+		log.Dev(authUser.PublicID, "userService.Authenticate", "User : Mongodb.Find().One : Success")
+		return co.Find(bson.M{"public_id": authUser.PublicID}).One(&user)
 	}); err != nil {
-		log.Dev(authUser.Email, "userService.Authenticate", "AuthenticateLogin : Failed : Error %s", err.Error())
+		log.Dev(authUser.PublicID, "userService.Authenticate", "AuthenticateLogin : Failed : Error %s", err.Error())
 		return nil, err
 	}
 
-	log.User(authUser.Email, "userService.Authenticate", "AuthenticateToken: Started")
-	if err := user.AuthenticateToken(session, &authUser); err != nil {
-		log.Dev(authUser.Email, "userService.Authenticate", "AuthenticateToken : Completed Error %s", err.Error())
+	log.User(authUser.PublicID, "userService.Authenticate", "AuthenticateToken: Started")
+	if err := user.AuthenticateToken(&authUser); err != nil {
+		log.Dev(authUser.PublicID, "userService.Authenticate", "AuthenticateToken : Completed Error %s", err.Error())
 		return nil, err
 	}
 
 	log.Dev("userService", "userService.Authenticate", "Completed")
 	user.SerializeAsPublic()
-	return user, nil
+	return &user, nil
 }

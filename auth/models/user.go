@@ -8,9 +8,9 @@ import (
 	"unicode"
 
 	"github.com/ArdanStudios/aggserver/auth/common"
+	"github.com/ArdanStudios/aggserver/auth/crypto"
 	"github.com/satori/go.uuid"
 
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -95,9 +95,10 @@ func (ua *UserAddress) Compare(uat *UserAddress) ([]Invalid, error) {
 // User represents an entity for user records.
 type User struct {
 	ID         bson.ObjectId       `json:"id" bson:"id"`
-	Type       common.UserType     `json:"user_type" bson:"user_type" validate:"required"`
+	UserType   common.UserType     `json:"user_type" bson:"user_type" validate:"required"`
 	FirstName  string              `json:"first_name,omitempty" bson:"first_name" validate:"required"`
 	LastName   string              `json:"last_name,omitempty" bson:"last_name" validate:"required"`
+	Company    string              `json:"company,omitempty" bson:"company" validate:"required"`
 	Addresses  []UserAddress       `bson:"addresses" json:"addresses" validate:"required"`
 	Token      string              `json:"token,omitempty" bson:"-"`
 	PublicID   string              `json:"public_id,omitempty" bson:"public_id" validate:"required"`
@@ -185,12 +186,14 @@ func (u *User) Compare(ut *User) ([]Invalid, error) {
 
 // UserNew provides a struct for use in creating a new User entity.
 type UserNew struct {
+	UserType        common.UserType `json:"user_type"`
 	FirstName       string          `json:"first_name"`
 	LastName        string          `json:"last_name"`
 	Email           string          `json:"email"`
+	Company         string          `json:"company"`
+	Addresses       []UserAddress   `json:"addresses"`
 	Password        string          `json:"password"`
 	PasswordConfirm string          `json:"password_confirm"`
-	Type            common.UserType `json:"user_type"`
 }
 
 // ValidatePassword validates the new password and password confirmation are a
@@ -209,7 +212,7 @@ func (u *UserNew) ValidatePassword() error {
 
 // Create defines a new User entity and saves it into the giving entity database
 // using the provided mongo session and serializable data.
-func (u *User) Create(session *mgo.Session, newUser *UserNew) error {
+func (u *User) Create(newUser *UserNew) error {
 	if err := newUser.ValidatePassword(); err != nil {
 		return err
 	}
@@ -222,16 +225,20 @@ func (u *User) Create(session *mgo.Session, newUser *UserNew) error {
 
 	u.FirstName = newUser.FirstName
 	u.LastName = newUser.LastName
-	u.Type = newUser.Type
+	u.UserType = newUser.UserType
+	u.Company = newUser.Company
 	u.Email = newUser.Email
 	u.PublicID = publicUUID.String()
 	u.PrivateID = privateUUID.String()
-	u.CreatedAt = createdAt
-	u.ModifiedAt = modifiedAt
+	u.CreatedAt = &createdAt
+	u.ModifiedAt = &modifiedAt
 	u.Status = common.ActiveEntity
 
-	// create the user password hash
-	p, err := crypto.BcryptHash(u.PrivateID + newUser.Password)
+	// Add the address.
+	u.Addresses = append(u.Addresses, newUser.Addresses...)
+
+	// Create the user password hash.
+	p, err := crypto.BcryptHash([]byte(u.PrivateID + newUser.Password))
 	if err != nil {
 		return err
 	}
@@ -246,7 +253,7 @@ func (u *User) Create(session *mgo.Session, newUser *UserNew) error {
 	return nil
 }
 
-// UserPasswordReset is used to resets a users entity's password
+// UserPasswordReset is used to resets a users entity's password.
 type UserPasswordReset struct {
 	ID       bson.ObjectId `bson:"id" json:"id,omitempty"`
 	PublicID string        `bson:"public_id" json:"public_id"`
@@ -279,18 +286,20 @@ func (u *UserPasswordChange) ValidatePassword() error {
 }
 
 // ChangePassword changes the password according to the values being received.
-func (u *User) ChangePassword(session *mgo.Session, changeUser *UserPasswordChange) error {
+func (u *User) ChangePassword(changeUser *UserPasswordChange) error {
 	if !u.isCredentailsLoaded() {
 		return errors.New(common.InvalidCredentailsError)
 	}
 
-	p, err := crypto.BcryptHash(u.PrivateID + changeUser.Password)
+	p, err := crypto.BcryptHash([]byte(u.PrivateID + changeUser.Password))
 	if err != nil {
 		return err
 	}
 
 	u.Password = string(p)
-	u.ModifiedAt = time.Now()
+
+	ms := time.Now()
+	u.ModifiedAt = &ms
 
 	if err := u.SetToken(); err != nil {
 		return err
@@ -308,13 +317,14 @@ type UserUpdate struct {
 	Email     string              `json:"email"`
 	Status    common.EntityStatus `json:"status" `
 	Token     string              `json:"token"`
-	Type      common.UserType     `json:"user_type"`
+	UserType  common.UserType     `json:"user_type"`
+	Company   string              `json:"company"`
 }
 
 // Update defines an update to a User's entity and updates the giving entity
 // in the corresponding mongodb database and giving collection using the provided
 // mongo session and serializable data.
-func (u *User) Update(session *mgo.Session, updatingUser *UserUpdate) error {
+func (u *User) Update(updatingUser *UserUpdate) error {
 	// Check if credentails are not loaded then load the document.
 	if !u.isSafeCredentailsLoaded() {
 		return errors.New(common.InvalidCredentailsError)
@@ -326,13 +336,15 @@ func (u *User) Update(session *mgo.Session, updatingUser *UserUpdate) error {
 
 	u.FirstName = updatingUser.FirstName
 	u.LastName = updatingUser.LastName
-	u.Addresses = updatingUser.Addresses
+	u.Addresses = append([]UserAddress{}, updatingUser.Addresses...)
 	u.Email = updatingUser.Email
+	u.Company = updatingUser.Company
 
 	u.Status = updatingUser.Status
-	u.Type = updatingUser.Type
+	u.UserType = updatingUser.UserType
 
-	u.ModifiedAt = time.Now()
+	ms := time.Now()
+	u.ModifiedAt = &ms
 
 	return nil
 }
@@ -352,19 +364,19 @@ type UserLoginAuthentication struct {
 
 // AuthenticateLogin authenticates the login crendentials against the given user
 // entity. It returns a non-nil error if the crendetails are invalid.
-func (u *User) AuthenticateLogin(session *mgo.Session, userLogin *UserLoginAuthentication) error {
+func (u *User) AuthenticateLogin(userLogin *UserLoginAuthentication) error {
 	// Check if credentails are not loaded then load the document.
 	if !u.isCredentailsLoaded() {
 		return errors.New(common.InvalidCredentailsError)
 	}
 
 	// Generate the hash corresponding with the given password
-	passwordHash, err := crypto.BycryptHash(u.PrivateID + userLogin.Password)
+	passwordHash, err := crypto.BcryptHash([]byte(u.PrivateID + userLogin.Password))
 	if err != nil {
 		return err
 	}
 
-	return u.AuthenticateAgainst(passwordHash.String())
+	return u.AuthenticateAgainst(string(passwordHash))
 }
 
 // UserTokenAuthentication provides the necessary information needed for authenticating
@@ -376,7 +388,7 @@ type UserTokenAuthentication struct {
 
 // AuthenticateToken authenticates the token against the entity. It returns a non-nil
 // error if the token is invalid
-func (u *User) AuthenticateToken(session *mgo.Session, userAuth *UserAuthentication) error {
+func (u *User) AuthenticateToken(userAuth *UserTokenAuthentication) error {
 	// Check if credentails are not loaded then load the document.
 	if !u.isCredentailsLoaded() {
 		return errors.New(common.InvalidCredentailsError)
@@ -389,24 +401,10 @@ func (u *User) AuthenticateToken(session *mgo.Session, userAuth *UserAuthenticat
 // error if the token is invalid
 func (u *User) AuthenticateAgainst(token string) error {
 	if token == "" {
-		return errors.New(credentailsAuthError)
+		return errors.New(common.CredentailsAuthError)
 	}
 
-	return crypto.IsValidTokenForEntity(c, token)
-}
-
-// ValidatePassword validates the new password and password confirmation are a
-// match and that they follow the given requirements for a valid password.
-func (u *UserNew) ValidatePassword() error {
-	if err := ValidatePassword(u.Password); err != nil {
-		return err
-	}
-
-	if u.Password != u.PasswordConfirm {
-		return errors.New(InvalidPasswordError)
-	}
-
-	return nil
+	return crypto.IsTokenValidForEntity(u, token)
 }
 
 // IsPasswordValid validates if the password belongs to the user entity and returns
@@ -414,16 +412,16 @@ func (u *UserNew) ValidatePassword() error {
 // invalid state.
 func (u *User) IsPasswordValid(pwd string) error {
 	if !u.isCredentailsLoaded() {
-		return errors.New(invalidCrendentailsError)
+		return errors.New(common.InvalidCredentailsError)
 	}
 
-	hash, err := crypto.BcryptHash(u.PrivateID + pwd)
+	hash, err := crypto.BcryptHash([]byte(u.PrivateID + pwd))
 	if err != nil {
 		return err
 	}
 
-	if !crypto.CompareBcryptHash(byte(u.Password), hash) {
-		return errors.New("Invalid Password")
+	if err := crypto.CompareBcryptHash([]byte(u.Password), hash); err != nil {
+		return err
 	}
 
 	return nil
@@ -436,7 +434,6 @@ func (u *User) SerializeAsPublic(includeMeta ...bool) {
 	u.Status = 0
 	u.PrivateID = ""
 	if len(includeMeta) == 0 {
-		u.Config = nil
 		u.ModifiedAt = nil
 		u.CreatedAt = nil
 	}
@@ -444,7 +441,7 @@ func (u *User) SerializeAsPublic(includeMeta ...bool) {
 
 // SetToken sets the entity's token.
 func (u *User) SetToken() error {
-	token, err := crypto.TokenForEntity(c)
+	token, err := crypto.TokenForEntity(u)
 	if err != nil {
 		return err
 	}
@@ -471,13 +468,13 @@ func (u *User) Salt() ([]byte, error) {
 	}
 
 	salt := fmt.Sprintf("%s:%s:%s", u.PublicID, u.PrivateID, fmt.Sprintf("%v", u.CreatedAt.UTC()))
-	return salt, nil
+	return []byte(salt), nil
 }
 
 // isSafeCredentailsLoaded returns true/false stating the presence/absence of the
 // basic user entity fields.
 func (u *User) isSafeCredentailsLoaded() bool {
-	if u.PublicID == "" || u.Password == "" || u.Email == "" || u.Type == 0 {
+	if u.PublicID == "" || u.Password == "" || u.Email == "" || u.UserType == 0 {
 		return false
 	}
 
@@ -495,7 +492,7 @@ func (u *User) isCredentailsLoaded() bool {
 }
 
 // ValidatePassword validates if a password has a set of requirements.
-func ValidatePassword(pwd string) error {
+func ValidatePassword(pw string) error {
 	if len(pw) < MinPasswordLength || len(pw) > MaxPasswordLength {
 		return errors.New(InvalidPasswordError)
 	}

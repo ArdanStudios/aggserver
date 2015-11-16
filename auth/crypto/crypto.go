@@ -28,9 +28,9 @@ func BcryptHash(pwd []byte) ([]byte, error) {
 	return crypted, nil
 }
 
-// CompareBycryptHash compares a given password to a bcrypted hash key. It returns
+// CompareBcryptHash compares a given password to a bcrypted hash key. It returns
 // a non-nil error if its not a match.
-func CompareBycryptHash(hash []byte, pwd []byte) error {
+func CompareBcryptHash(hash []byte, pwd []byte) error {
 	return bcrypt.CompareHashAndPassword(hash, pwd)
 }
 

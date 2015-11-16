@@ -1,4 +1,5 @@
-// Package models contains data structures and associated behavior.
+// Package models contains data structures and associated behavior for managing
+// entities.
 package models
 
 import "gopkg.in/bluesuncorp/validator.v6"

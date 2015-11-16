@@ -1,10 +1,10 @@
 package common
 
-// invalidCrendentailsError is used in the returned error if there was invalid
+// InvalidCredentailsError is used in the returned error if there was invalid
 // crendentails to be validated against.
-const InvalidCrendentailsError = "Invalid Authentication Credentials"
+const InvalidCredentailsError = "Invalid Authentication Credentials"
 
-// credentailsAuthError is used in the returned error if there was invalid credentail
+// CredentailsAuthError is used in the returned error if there was invalid credentail
 // data to be authenticated against.
 const CredentailsAuthError = "Invalid Authentication Credentials"
 
