@@ -445,17 +445,17 @@ func (u *User) IsPasswordValid(pwd string) error {
 		return err
 	}
 
-	binHash, err := base64.StdEncoding.DecodeString(hash)
-	if err != nil {
-		return err
-	}
+	// binHash, err := base64.StdEncoding.DecodeString(hash)
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// userBinHash, err := base64.StdEncoding.DecodeString(u.Password)
+	// if err != nil {
+	// 	return err
+	// }
 
-	userBinHash, err := base64.StdEncoding.DecodeString(u.Password)
-	if err != nil {
-		return err
-	}
-
-	if err := crypto.CompareBcryptHash(binHash, userBinHash); err != nil {
+	if err := crypto.CompareBcryptHash([]byte(u.Password), []byte(hash)); err != nil {
 		return err
 	}
 
@@ -468,6 +468,7 @@ func (u *User) SerializeAsPublic(includeMeta ...bool) {
 	u.ID = ""
 	u.Status = 0
 	u.PrivateID = ""
+	u.Password = ""
 	if len(includeMeta) == 0 {
 		u.ModifiedAt = nil
 		u.CreatedAt = nil
