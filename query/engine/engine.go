@@ -46,6 +46,7 @@ type Connect struct {
 // Init must be called only once, it initializes and connects up the session
 // and query processor.
 func Init(c Connect) {
+	config = &c
 	info := &mgo.DialInfo{
 		Addrs:    []string{c.Host},
 		Timeout:  60 * time.Second,
