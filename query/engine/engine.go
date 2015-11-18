@@ -15,6 +15,11 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// session is the global mongodb session for handling requests
+var session *mgo.Session
+var config *Connect
+var wg sync.WaitGroup
+
 // Expression represents a query to be used against the aggregation api
 type Expression struct {
 	Collection string   `yaml:"collection" json:"collection"`
@@ -38,16 +43,9 @@ type Connect struct {
 	Db       string
 }
 
-// Engine provides a basic mongodb query controller, ensuring concurrent request
-// to the given database instance.
-type Engine struct {
-	*Connect
-	*mgo.Session
-	wg sync.WaitGroup
-}
-
-// New returns a new query engine instance.
-func New(c Connect) (*Engine, error) {
+// Init must be called only once, it initializes and connects up the session
+// and query processor.
+func Init(c Connect) {
 	info := &mgo.DialInfo{
 		Addrs:    []string{c.Host},
 		Timeout:  60 * time.Second,
@@ -56,101 +54,41 @@ func New(c Connect) (*Engine, error) {
 		Password: c.Pass,
 	}
 
-	session, err := mgo.DialWithInfo(info)
+	ses, err := mgo.DialWithInfo(info)
 
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 
-	session.SetMode(mgo.Monotonic, true)
+	// Reads may not be entirely up-to-date, but they will always see the
+	// history of changes moving forward, the data read will be consistent
+	// across sequential queries in the same session, and modifications made
+	// within the session will be observed in following queries (read-your-writes).
+	// http://godoc.org/labix.org/v2/mgo#Session.SetMode
+	ses.SetMode(mgo.Monotonic, true)
 
-	eng := Engine{
-		Connect: &c,
-		Session: session,
-	}
-
-	return &eng, nil
+	session = ses
 }
 
-// Close ends the session and frees the resources but ensures all
-// request are fully processed before ending.
-func (e *Engine) Close() {
-	e.wg.Wait()
-	e.Session.Close()
+// Wait forces the current routine to wait until all requests are fully processed.
+func Wait() {
+	wg.Wait()
 }
 
-// ResultTypeCallback provides a function type for the returned result from a
-// call to Engine.Query, it supplies an error, the expression used in
-// and the result of the expression
-type ResultTypeCallback func(error, *Expression, []bson.M)
+// Session returns a copy of the initialized mognodb session.
+func Session() *mgo.Session {
+	return session.Copy()
+}
 
-// QueryFile requests a file be loaded which contains specific rules to be used
-// in performing a QueryRule,the file contains a json formatted rule set which will
-// be processed and results returned to the callback
-func (e *Engine) QueryFile(file string, params map[string]interface{}, rx ResultTypeCallback) error {
-	// retrieve the file and load up the content
-	qfile, err := os.Open(file)
-
-	// we failed to get file,return err
+// Stringify returns a string representation of a given value,if it could not be
+// turned into a string, it will return an empty string.
+func Stringify(m interface{}) string {
+	val, err := json.Marshal(m)
 	if err != nil {
-		// rx(err,nil,nil)
-		return err
+		return ""
 	}
 
-	// ensure we have the file closed up
-	defer qfile.Close()
-
-	rule, err := mapQueryReader2Rule(qfile, params)
-
-	// we failed to create the rule objec,return err
-	if err != nil {
-		// rx(err,nil,nil)
-		return err
-	}
-
-	// execute the given Rule against the concerned database
-	e.QueryRule(rule, rx)
-
-	return nil
-}
-
-// Query takes a byte slice that contain a json rule which gets turned
-// rule struct and provided with the needed params to resolve any necessary
-// value substitution. End result is supplied to the given callback
-func (e *Engine) Query(bo []byte, params map[string]interface{}, rx ResultTypeCallback) error {
-	// generate the rule struct from the given byte slice
-	ro, err := mapQuery2Rule(bo, params)
-
-	// if we failed, return and pass to callback
-	if err != nil {
-		// rx(err, nil, nil)
-		return err
-	}
-
-	// execute the given Rule against the concerned database
-	e.QueryRule(ro, rx)
-	return nil
-}
-
-// QueryRule runs a given rule set against a collection executing the fail or pass
-// depending on the outcome of the Test if no error occured.
-func (e *Engine) QueryRule(ro *Rule, rx ResultTypeCallback) {
-	e.QueryExpression(ro.Test, func(err error, res []bson.M) {
-		if err != nil {
-			log.Printf("Error occured executing %s: %s", ro, err)
-			return
-		}
-
-		if len(res) == 0 {
-			e.QueryExpression(ro.Fail, func(err error, res []bson.M) {
-				rx(err, ro.Fail, res)
-			})
-		} else {
-			e.QueryExpression(ro.Pass, func(err error, res []bson.M) {
-				rx(err, ro.Pass, res)
-			})
-		}
-	})
+	return string(val)
 }
 
 // ResultCallback provides a function type for the return of a result from a
@@ -159,14 +97,15 @@ type ResultCallback func(error, []bson.M)
 
 // QueryExpression executes a given expression against a given collection and passes the
 // result or an error if occured to a given callback handler.
-func (e *Engine) QueryExpression(exp *Expression, rx ResultCallback) {
+func QueryExpression(exp *Expression, rx ResultCallback) {
 	if rx == nil {
 		rx = func(err error, _ []bson.M) {}
 	}
-	e.wg.Add(1)
+
+	wg.Add(1)
 	go func() {
 		//ensure we decrement the wait counter.
-		defer e.wg.Done()
+		defer wg.Done()
 
 		// map out the expression condition lists into a bson.M map.
 		evalExpr, err := mapExpressionToBSON(exp)
@@ -178,26 +117,91 @@ func (e *Engine) QueryExpression(exp *Expression, rx ResultCallback) {
 			return
 		}
 
-		scl := e.Copy()
+		scl := Session()
 		defer scl.Close()
 
-		// this will contain the result received from the execution of the expression's
-		// conditions.
 		var result []bson.M
 
-		//get the needed collection from the db.
-		col := e.DB(e.Db).C(exp.Collection)
+		col := scl.DB(config.Db).C(exp.Collection)
 
-		// evaluate the expression set and get all results associated. If we receive
-		// an error, call the callback, reply and return
 		if err := col.Pipe(evalExpr).All(&result); err != nil {
 			rx(err, nil)
 			return
 		}
 
-		// no error occured at this point,call the callback with the given result.
 		rx(nil, result)
 	}()
+}
+
+// ResultTypeCallback provides a function type for the returned result from a
+// call to Engine.Query, it supplies an error, the expression used in
+// and the result of the expression
+type ResultTypeCallback func(error, *Expression, []bson.M)
+
+// QueryFile requests a file be loaded which contains specific rules to be used
+// in performing a QueryRule,the file contains a json formatted rule set which will
+// be processed and results returned to the callback
+func QueryFile(file string, params map[string]interface{}, rx ResultTypeCallback) {
+	// retrieve the file and load up the content
+	qfile, err := os.Open(file)
+
+	// we failed to get file,return err
+	if err != nil {
+		rx(err, nil, nil)
+		return
+	}
+
+	// ensure we have the file closed up
+	defer qfile.Close()
+
+	rule, err := mapQueryReader2Rule(qfile, params)
+
+	// we failed to create the rule objec,return err
+	if err != nil {
+		rx(err, nil, nil)
+		return
+	}
+
+	// execute the given Rule against the concerned database
+	QueryRule(rule, rx)
+}
+
+// Query takes a byte slice that contain a json rule which gets turned
+// rule struct and provided with the needed params to resolve any necessary
+// value substitution. End result is supplied to the given callback
+func Query(bo []byte, params map[string]interface{}, rx ResultTypeCallback) {
+	// generate the rule struct from the given byte slice
+	ro, err := mapQuery2Rule(bo, params)
+
+	// if we failed, return and pass to callback
+	if err != nil {
+		rx(err, nil, nil)
+		return
+	}
+
+	// execute the given Rule against the concerned database
+	QueryRule(ro, rx)
+}
+
+// QueryRule runs a given rule set against a collection executing the fail or pass
+// depending on the outcome of the Test if no error occured.
+func QueryRule(ro *Rule, rx ResultTypeCallback) {
+	QueryExpression(ro.Test, func(err error, res []bson.M) {
+		if err != nil {
+			log.Printf("Error occured executing %s: %s", ro, err)
+			return
+		}
+
+		if len(res) == 0 {
+			QueryExpression(ro.Fail, func(err error, res []bson.M) {
+				rx(err, ro.Fail, res)
+			})
+		} else {
+			QueryExpression(ro.Pass, func(err error, res []bson.M) {
+				rx(err, ro.Pass, res)
+			})
+		}
+	})
 }
 
 //mapQuery2Rule will map out a giving json byte slice into a Rule object.
@@ -207,11 +211,7 @@ func mapQuery2Rule(query []byte, params map[string]interface{}) (*Rule, error) {
 
 //mapQueryReader2Rule will map out a giving io.Reader into a Rule object.
 func mapQueryReader2Rule(query io.Reader, params map[string]interface{}) (*Rule, error) {
-	r := Rule{
-		Test: &Expression{},
-		Fail: &Expression{},
-		Pass: &Expression{},
-	}
+	var r Rule
 
 	if err := json.NewDecoder(query).Decode(&r); err != nil {
 		return nil, err

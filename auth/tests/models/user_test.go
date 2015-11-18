@@ -16,8 +16,8 @@ var u = models.UserNew{
 	LastName:        "Zheng",
 	Email:           "zheng@gmail.com",
 	Company:         "Zuff",
-	Password:        "Zhu*fro8bzr",
-	PasswordConfirm: "Zhu*fro8bzr",
+	Password:        "Zhu-fro8bzr",
+	PasswordConfirm: "Zhu-fro8bzr",
 	Addresses: []models.UserAddress{
 		{
 			Type:    1,
@@ -55,10 +55,7 @@ func userCreate(t *testing.T) {
 				t.Logf("\t\tShould create user without errors %s", tests.Succeed)
 			}
 
-			// pwd, _ := crypto.BcryptHash([]byte(user.PrivateID + "Zhu*fro8bzr"))
-			// log.Printf("%s -> %s", user.Password, pwd)
-
-			if err := user.IsPasswordValid("Zhu*fro8bzr"); err != nil {
+			if err := user.IsPasswordValid("Zhu-fro8bzr"); err != nil {
 				t.Errorf("\t\tShould have a valid password %s", tests.Failed)
 			} else {
 				t.Logf("\t\tShould have a valid password %s", tests.Succeed)
@@ -109,7 +106,7 @@ func userLogin(t *testing.T) {
 		{
 			err := user.AuthenticateLogin(&models.UserLoginAuthentication{
 				Email:    "zheng@gmail.com",
-				Password: "Zhu*fro8bzr",
+				Password: "Zhu-fro8bzr",
 			})
 
 			if err != nil {
@@ -129,27 +126,9 @@ func userAuthenticate(t *testing.T) {
 		t.Log("\tWhen giving user token and public_id credentials")
 		{
 
-			dupUser := new(models.User)
-
-			err := dupUser.Create(&u)
-			if err != nil {
-				t.Errorf("\t\tShould successfully create user shadow  %s", tests.Failed)
-			} else {
-				t.Logf("\t\tShould successfully create user shadow  %s", tests.Succeed)
-			}
-
-			dupUser.CreatedAt = user.CreatedAt
-
-			err = dupUser.SetToken()
-			if err != nil {
-				t.Errorf("\t\tShould successfully create shadow token  %s", tests.Failed)
-			} else {
-				t.Logf("\t\tShould successfully create shadow token  %s", tests.Succeed)
-			}
-
-			err = user.AuthenticateToken(&models.UserTokenAuthentication{
+			err := user.AuthenticateToken(&models.UserTokenAuthentication{
 				PublicID: user.PublicID,
-				Token:    dupUser.Token,
+				Token:    user.Token,
 			})
 
 			if err != nil {
